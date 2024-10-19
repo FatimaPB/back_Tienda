@@ -93,7 +93,7 @@ router.post("/usuarios/verico", async (req, res) => {
         }
 
         // Comparar el código ingresado con el código hasheado almacenado
-        const isCodeValid = await bcryptjs.compare(codigoVerificacion, usuario.verificationCode);
+        const isCodeValid = await crypto.compare(codigoVerificacion, usuario.verificationCode);
 
         if (isCodeValid) {
             // Marcar al usuario como verificado

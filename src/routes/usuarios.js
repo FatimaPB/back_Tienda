@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require("express");
-const bcrypt = require("bcrypt");
+const bcryptjs = require('bcryptjs');
 const nodemailer = require("nodemailer");
 const UsuarioSchema = require("../models/usuarios");
 const crypto = require('crypto'); // Para generar el código de verificación
@@ -29,14 +29,13 @@ router.post("/usuarios", async (req, res) => {
         }
 
         // Hashear la contraseña
-        const hashedPassword = await bcrypt.hash(contrasena, 10);
+        const hashedPassword = await bcryptjs.hash(contrasena, 10);
 
         // Generar un código de verificación
         const verificationCode = crypto.randomInt(100000, 999999).toString(); // Código de 6 dígitos
 
         // Hashear el código de verificación
-        const hashedVerificationCode = await bcrypt.hash(verificationCode, 10);
-
+        const hashedVerificationCode = await bcryptjs.hash(verificationCode, 10);
 
         // Crear el nuevo usuario sin verificar
         const usuario = new UsuarioSchema({
@@ -94,7 +93,7 @@ router.post("/usuarios/verico", async (req, res) => {
         }
 
         // Comparar el código ingresado con el código hasheado almacenado
-        const isCodeValid = await bcrypt.compare(codigoVerificacion, usuario.verificationCode);
+        const isCodeValid = await bcryptjs.compare(codigoVerificacion, usuario.verificationCode);
 
         if (isCodeValid) {
             // Marcar al usuario como verificado

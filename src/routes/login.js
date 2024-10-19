@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const UsuarioSchema = require('../models/usuarios'); // Asegúrate de importar tu modelo de usuario
 const router = express.Router();
@@ -30,7 +30,7 @@ router.post('/login', async (req, res) => {
         }
 
         // Verificar la contraseña
-        const isPasswordValid = await bcrypt.compare(contrasena, usuario.contrasena);
+        const isPasswordValid = await bcryptjs.compare(contrasena, usuario.contrasena);
         if (!isPasswordValid) {
             // Aumentar el contador de intentos fallidos
             usuario.failedAttempts += 1;

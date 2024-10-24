@@ -7,7 +7,7 @@ const crypto = require('crypto'); // Para generar el código de verificación
 const https = require('https'); // Para la verificación de reCAPTCHA
 const router = express.Router();
 
-const RECAPTCHA_SECRET_KEY = '6LfUy2oqAAAAAJ1vH8yZ8T_YaqDVwseyQTY2TSuh'; // Reemplaza por tu clave secreta de reCAPTCHA
+const RECAPTCHA_SECRET_KEY = '6Ldz0WoqAAAAAJMYqYuwLAQScqoGSo6wBtZbP_dO'; // Reemplaza por tu clave secreta de reCAPTCHA
 
 // Crear usuario
 router.post("/usuarios", async (req, res) => {

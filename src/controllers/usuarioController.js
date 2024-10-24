@@ -67,7 +67,7 @@ const bloquearUsuario = async (req, res) => {
 
         // Actualiza el estado de bloqueo del usuario
         usuario.isBlocked = true;
-        usuario.blockedUntil = new Date(new Date().getTime() + 24 * 60 * 60 * 1000); // Bloqueo de 24 horas
+        usuario.blockedUntil = new Date(new Date().getTime() + 2 * 60 * 60 * 1000); // Bloqueo de 24 horas
         await usuario.save(); // Guarda los cambios en la base de datos
 
         res.json({ mensaje: `Usuario ${usuario.nombre} bloqueado.` });

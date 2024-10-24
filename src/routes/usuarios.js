@@ -4,90 +4,58 @@ const transporter = require('../config/nodemailer');
 const UsuarioSchema = require("../models/usuarios");
 const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = require("../controllers/usuarioController");
 const crypto = require('crypto'); // Para generar el código de verificación
-const https = require('https'); // Para la verificación de reCAPTCHA
 const router = express.Router();
-
-const RECAPTCHA_SECRET_KEY = '6Ldz0WoqAAAAAJMYqYuwLAQScqoGSo6wBtZbP_dO'; // Reemplaza por tu clave secreta de reCAPTCHA
 
 // Crear usuario
 router.post("/usuarios", async (req, res) => {
     try {
-        const { nombre, correo, contrasena, telefono, recaptchaToken } = req.body;
+        const { nombre, correo, contrasena, telefono } = req.body;
 
-        // Verificar si se ha recibido el token de reCAPTCHA
-        if (!recaptchaToken) {
-            return res.status(400).json({ message: "Por favor completa el reCAPTCHA." });
+        // Verificar si el correo ya está registrado
+        const usuarioExistente = await UsuarioSchema.findOne({ correo });
+        if (usuarioExistente) {
+            return res.status(400).json({ message: "El correo ya está registrado" });
         }
 
-        // Verificar el token de reCAPTCHA con Google
-        const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`;
-        
-        // Hacer la solicitud HTTPS a la API de reCAPTCHA
-        https.get(verificationUrl, (recaptchaRes) => {
-            let data = '';
+        // Hashear la contraseña
+        const hashedPassword = await bcryptjs.hash(contrasena, 10);
 
-            recaptchaRes.on('data', (chunk) => {
-                data += chunk;
-            });
+        // Generar un código de verificación
+        const verificationCode = crypto.randomInt(100000, 999999).toString(); // Código de 6 dígitos
 
-            recaptchaRes.on('end', async () => {
-                const recaptchaResponse = JSON.parse(data);
+        // Hashear el código de verificación
+        const hashedVerificationCode = await bcryptjs.hash(verificationCode, 10);
 
-                // Verificar si la respuesta fue exitosa
-                if (!recaptchaResponse.success) {
-                    return res.status(400).json({ message: "Verificación de reCAPTCHA fallida." });
-                }
+        // Crear el nuevo usuario sin verificar
+        const usuario = new UsuarioSchema({
+            nombre,
+            correo,
+            contrasena: hashedPassword,
+            telefono,
+            tipoUsuario: 'Cliente',
+            verificationCode: hashedVerificationCode,  // Guardar el código de verificación
+            isVerified: false
+        });
 
-                // Verificar si el correo ya está registrado
-                const usuarioExistente = await UsuarioSchema.findOne({ correo });
-                if (usuarioExistente) {
-                    return res.status(400).json({ message: "El correo ya está registrado" });
-                }
+        // Guardar el usuario
+        await usuario.save();
 
-                // Hashear la contraseña
-                const hashedPassword = await bcryptjs.hash(contrasena, 10);
+        // Enviar correo con el código de verificación
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: correo,
+            subject: 'Verificación de correo electrónico',
+            text: `Tu código de verificación es: ${verificationCode}`
+        };
 
-                // Generar un código de verificación
-                const verificationCode = crypto.randomInt(100000, 999999).toString(); // Código de 6 dígitos
-
-                // Hashear el código de verificación
-                const hashedVerificationCode = await bcryptjs.hash(verificationCode, 10);
-
-                // Crear el nuevo usuario sin verificar
-                const usuario = new UsuarioSchema({
-                    nombre,
-                    correo,
-                    contrasena: hashedPassword,
-                    telefono,
-                    tipoUsuario: 'Cliente',
-                    verificationCode: hashedVerificationCode,  // Guardar el código de verificación
-                    isVerified: false
-                });
-
-                // Guardar el usuario
-                await usuario.save();
-
-                // Enviar correo con el código de verificación
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: correo,
-                    subject: 'Verificación de correo electrónico',
-                    text: `Tu código de verificación es: ${verificationCode}`
-                };
-
-                // Envía el correo
-                transporter.sendMail(mailOptions, (error, info) => {
-                    if (error) {
-                        console.error("Error al enviar el correo:", error);
-                        return res.status(500).json({ message: "Error al enviar el correo de verificación", error: error.message });
-                    }
-                    console.log("Correo enviado:", info.response);
-                    res.status(201).json({ message: "Usuario creado. Por favor verifica tu correo electrónico." });
-                });
-            });
-        }).on('error', (error) => {
-            console.error("Error al verificar reCAPTCHA:", error);
-            res.status(500).json({ message: "Error interno al verificar reCAPTCHA" });
+        // Envía el correo
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error("Error al enviar el correo:", error);
+                return res.status(500).json({ message: "Error al enviar el correo de verificación", error: error.message });
+            }
+            console.log("Correo enviado:", info.response);
+            res.status(201).json({ message: "Usuario creado. Por favor verifica tu correo electrónico." });
         });
 
     } catch (error) {
@@ -132,6 +100,8 @@ router.post("/usuarios/verico", async (req, res) => {
     }
 });
 
+
+
 // Obtener
 router.get("/usuarios", async (req, res) => {
     try {
@@ -148,7 +118,7 @@ router.put('/usuarios/:id', async (req, res) => {
     const updatedUsuario = req.body;
 
     try {
-        const result = await UsuarioSchema.updateOne({ _id: id }, { $set: updatedUsuario });
+        const result = await USuarioSchema.updateOne({ _id: id }, { $set: updatedUsuario });
         res.json(result);
     } catch (error) {
         res.status(500).json({ message: 'Error updating client', error });
@@ -160,7 +130,7 @@ router.delete("/usuarios/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
-        const data = await UsuarioSchema.deleteOne({ _id: id });
+        const data = await USuarioSchema.deleteOne({ _id: id });
         res.json(data);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -173,7 +143,7 @@ router.post('/configurar-intentos', async (req, res) => {
 
     try {
         // Busca el usuario en la base de datos
-        const usuario = await UsuarioSchema.findById(userId);
+        const usuario = await Usuario.findById(userId);
         if (!usuario) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }

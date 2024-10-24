@@ -1,21 +1,10 @@
-require('dotenv').config();
 const express = require("express");
 const bcryptjs = require('bcryptjs');
-const nodemailer = require("nodemailer");
+const transporter = require('../config/nodemailer');
 const UsuarioSchema = require("../models/usuarios");
+const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = require("../controllers/usuarioController");
 const crypto = require('crypto'); // Para generar el código de verificación
 const router = express.Router();
-
-// Configura tu transporte de correo
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
 
 // Crear usuario
 router.post("/usuarios", async (req, res) => {
@@ -116,7 +105,7 @@ router.post("/usuarios/verico", async (req, res) => {
 // Obtener
 router.get("/usuarios", async (req, res) => {
     try {
-        const usuarios = await USuarioSchema.find();
+        const usuarios = await UsuarioSchema.find();
         res.json(usuarios);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -147,5 +136,36 @@ router.delete("/usuarios/:id", async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
+// Ruta para guardar la configuración de intentos límites
+router.post('/configurar-intentos', async (req, res) => {
+    const { userId, intentosLimite } = req.body;
+
+    try {
+        // Busca el usuario en la base de datos
+        const usuario = await Usuario.findById(userId);
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Actualiza el número de intentos límite
+        usuario.intentosLimite = intentosLimite;
+        await usuario.save();
+
+        res.status(200).json({ message: 'Configuración guardada con éxito' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error al guardar la configuración' });
+    }
+});
+
+// Ruta para manejar intentos fallidos
+router.post('/bloquear-por-intentos', manejarIntentosFallidos);
+
+// Ruta para obtener usuarios bloqueados
+router.get('/usuarios-bloqueados', obtenerUsuariosBloqueados);
+
+// Ruta para bloquear un usuario
+router.put('/usuarios/bloquear/:userId', bloquearUsuario); // Cambia según tu estructura de rutas
 
 module.exports = router;

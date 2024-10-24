@@ -40,8 +40,7 @@ const UsuarioSchema = new mongoose.Schema({
     blockedUntil: { 
         type: Date,
         default: null 
-    } 
-
+    } ,
 });
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);

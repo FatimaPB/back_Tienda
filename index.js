@@ -2,7 +2,14 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const UsuarioRoutes = require('./src/routes/usuarios');
-const loginRoutes = require('./src/routes/login')
+const loginRoutes = require('./src/routes/login');
+const multer = require('multer'); // Importar multer
+const DocumentoRegulatorioRoutes = require('./src/routes/DocumentoRegulatorio');
+const TerminosycondicionesRoutes = require('./src/routes/Terminosycondiciones');
+const DeslindeRoutes = require('./src/routes/Deslinde');
+const EmpresaRoutes = require('./src/routes/Empresa');
+const authRoutes = require('./src/routes/auth')
+
 
 require("dotenv").config();
 const app = express();
@@ -14,9 +21,13 @@ app.use(cors());
 
 app.use('/api',UsuarioRoutes);
 app.use('/api',loginRoutes);
+app.use('/api',DocumentoRegulatorioRoutes);
+app.use('/api',TerminosycondicionesRoutes);
+app.use('/api',DeslindeRoutes);
+app.use('/api',EmpresaRoutes);
+app.use('/api',authRoutes);
 
 //Rutas
-
 app.get("/", (req, res) => {
     res.send(`
         <!DOCTYPE html>

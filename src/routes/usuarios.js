@@ -1,4 +1,5 @@
 const express = require("express");
+require('dotenv').config();
 const bcryptjs = require('bcryptjs');
 const transporter = require('../config/nodemailer');
 const UsuarioSchema = require("../models/usuarios");
@@ -6,8 +7,6 @@ const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = 
 const crypto = require('crypto'); // Para generar el código de verificación
 const https = require('https'); // Para la verificación de reCAPTCHA
 const router = express.Router();
-
-const RECAPTCHA_SECRET_KEY = '6Ldz0WoqAAAAAJMYqYuwLAQScqoGSo6wBtZbP_dO'; // Reemplaza por tu clave secreta de reCAPTCHA
 
 // Crear usuario
 router.post("/usuarios", async (req, res) => {
@@ -20,7 +19,7 @@ router.post("/usuarios", async (req, res) => {
         }
 
         // Verificar el token de reCAPTCHA con Google
-        const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`;
+        const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`;
         
         // Hacer la solicitud HTTPS a la API de reCAPTCHA
         https.get(verificationUrl, (recaptchaRes) => {

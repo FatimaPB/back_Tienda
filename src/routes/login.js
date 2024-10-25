@@ -2,33 +2,17 @@ const express = require('express');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const UsuarioSchema = require('../models/usuarios'); // Asegúrate de importar tu modelo de usuario
-const axios = require('axios');
 const router = express.Router();
-
-const RECAPTCHA_SECRET_KEY = '6LeiqGsqAAAAAN0c3iRx89cvzYXh4lvdejJmZIS1'; // Reemplaza con tu clave secreta
 
 // Ruta para iniciar sesión
 router.post('/login', async (req, res) => {
-    const { correo, contrasena, recaptcha } = req.body;
-
     try {
-        // Verificar reCAPTCHA
-        const response = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET_KEY}&response=${recaptcha}`);
-        const { success } = response.data;
-
-        // Mensajes de consola para verificación de reCAPTCHA
-        console.log('Respuesta de reCAPTCHA:', response.data);
-        console.log('Verificación de reCAPTCHA exitosa:', success);
-
-        if (!success) {
-            console.log('Error de verificación de reCAPTCHA');
-            return res.status(400).json({ message: 'Error de verificación de reCAPTCHA' });
-        }
+        const { correo, contrasena } = req.body;
 
         // Buscar al usuario por correo
         const usuario = await UsuarioSchema.findOne({ correo });
         if (!usuario) {
-            return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+            return res.status(400).json({ message: 'Correo o contraseña incorrectos' });
         }
 
         // Verificar si la cuenta está bloqueada y si el tiempo de bloqueo ha expirado
@@ -55,7 +39,7 @@ router.post('/login', async (req, res) => {
             }
 
             await usuario.save(); // Guarda los cambios en la base de datos
-            return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+            return res.status(400).json({ message: 'Correo o contraseña incorrectos' });
         }
 
         // Reiniciar los intentos fallidos si la contraseña es válida

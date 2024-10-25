@@ -7,8 +7,23 @@ const router = express.Router();
 // Ruta para iniciar sesión
 router.post('/login', async (req, res) => {
     try {
-        const { correo, contrasena } = req.body;
+        const { correo, contrasena, recaptcha } = req.body;
 
+        // Verificación del reCAPTCHA
+        const secretKey = '6LeiqGsqAAAAAN0c3iRx89cvzYXh4lvdejJmZIS1'; // Reemplaza con tu clave secreta
+        const response = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+            params: {
+                secret: secretKey,
+                response: recaptcha
+            }
+        });
+    
+        const { success } = response.data;
+    
+        if (!success) {
+            return res.status(400).json({ message: 'Error de verificación de reCAPTCHA.' });
+        }
+    
         // Buscar al usuario por correo
         const usuario = await UsuarioSchema.findOne({ correo });
         if (!usuario) {

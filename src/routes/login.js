@@ -1,5 +1,6 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
+const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const UsuarioSchema = require('../models/usuarios'); // Asegúrate de importar tu modelo de usuario
 const router = express.Router();

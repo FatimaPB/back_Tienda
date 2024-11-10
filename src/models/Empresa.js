@@ -8,7 +8,7 @@ const EmpresaSchema = new mongoose.Schema({
     },
     slogan: {
         type: String,
-        maxlength: 100 // Límite de caracteres para el eslogan
+        maxlength: 200 // Límite de caracteres para el eslogan
     },
     logo: {
         type: String,

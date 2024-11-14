@@ -11,15 +11,14 @@ const DeslindeRoutes = require('./src/routes/Deslinde');
 const EmpresaRoutes = require('./src/routes/Empresa');
 const authRoutes = require('./src/routes/auth')
 
-
-// Configuración de CORS
 const corsOptions = {
-    origin: 'https://tienda-lib-cr.vercel.app', // Permite solo este dominio
+    origin: 'https://tienda-lib-cr.vercel.app',  // Permite solo este dominio
     credentials: true,  // Permite el uso de cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Encabezados permitidos
-  };
-  
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Métodos permitidos
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Encabezados permitidos
+    preflightContinue: true,  // Permite continuar con la solicitud después de la prevalidación (opcional)
+};
+
 
 
 require("dotenv").config();

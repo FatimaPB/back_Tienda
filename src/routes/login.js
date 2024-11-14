@@ -79,9 +79,10 @@ router.post('/login', async (req, res) => {
             res.cookie('authToken', token, {
                 httpOnly: true,          // No accesible desde JavaScript en el navegador
                 secure: true,             // Solo se envía en conexiones HTTPS
-                sameSite: 'Strict',       // Solo se envía en solicitudes del mismo sitio
+                sameSite: 'None',       // Solo se envía en solicitudes del mismo sitio
                 maxAge: 60 * 60 * 1000    // Expira en 1 hora
             });
+
 
         // Enviar el token como respuesta
         res.json({ message: 'Inicio de sesión exitoso', token, tipoUsuario: usuario.tipoUsuario });

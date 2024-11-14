@@ -9,25 +9,33 @@ const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
-// Middleware para verificar el token
+
+// Middleware para verificar el token desde cookies o desde el encabezado
 const verifyToken = (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log('Token recibido en el middleware:', token); // Para depuración
-  
-    if (!token) {
-      return res.status(401).json({ message: 'Acceso denegado. No se proporcionó el token.' });
-    }
-  
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      console.log('Token decodificado:', decoded); // Para verificar el contenido del token
-      req.userId = decoded.id; // Verifica que "id" exista en el token
-      next();
-    } catch (error) {
-      console.error('Error al verificar el token:', error); // Ver detalle del error
-      res.status(401).json({ message: 'Token inválido o expirado.' });
-    }
-  };
+  // Intenta obtener el token desde las cookies
+  let token = req.cookies.authToken;
+
+  // Si no se encuentra el token en las cookies, intenta obtenerlo del encabezado
+  if (!token) {
+    token = req.header('Authorization')?.replace('Bearer ', '');
+  }
+
+  // Si no se encuentra el token en ninguno de los dos lugares, retorna un error
+  if (!token) {
+    return res.status(401).json({ message: 'Acceso denegado. No se proporcionó el token.' });
+  }
+
+  try {
+    // Decodifica el token y extrae el ID del usuario
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.id; // Verifica que "id" exista en el token
+    next();
+  } catch (error) {
+    console.error('Error al verificar el token:', error); // Ver detalle del error
+    res.status(401).json({ message: 'Token inválido o expirado.' });
+  }
+};
+
   
   
 
@@ -275,5 +283,6 @@ router.get('/usuarios-bloqueados', obtenerUsuariosBloqueados);
 
 // Ruta para bloquear un usuario
 router.put('/usuarios/bloquear/:userId', bloquearUsuario); // Cambia según tu estructura de rutas
+
 
 module.exports = router;

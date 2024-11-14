@@ -100,7 +100,7 @@ router.put('/perfil', upload.single('logo'), async (req, res) => {
 });
 
 // Obtener perfil de empresa
-router.get('/perfil', async (req, res) => {
+router.get('/datos', async (req, res) => {
     try {
         const empresa = await Empresa.findOne();
         if (!empresa) {

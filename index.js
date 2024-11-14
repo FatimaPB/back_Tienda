@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const UsuarioRoutes = require('./src/routes/usuarios');
 const loginRoutes = require('./src/routes/login');
 const multer = require('multer'); // Importar multer
@@ -10,6 +11,15 @@ const DeslindeRoutes = require('./src/routes/Deslinde');
 const EmpresaRoutes = require('./src/routes/Empresa');
 const authRoutes = require('./src/routes/auth')
 
+// Configuración de CORS
+const corsOptions = {
+    origin: 'https://tienda-lib-cr.vercel.app', // Permite solo este dominio
+    credentials: true,  // Permite el uso de cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Encabezados permitidos
+  };
+  
+
 
 require("dotenv").config();
 const app = express();
@@ -17,7 +27,12 @@ const port = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+
+app.use(cors(corsOptions));
+
+
+  
+app.use(cookieParser());
 
 app.use('/api',UsuarioRoutes);
 app.use('/api',loginRoutes);

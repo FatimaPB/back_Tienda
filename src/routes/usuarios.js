@@ -4,7 +4,50 @@ const transporter = require('../config/nodemailer');
 const UsuarioSchema = require("../models/usuarios");
 const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = require("../controllers/usuarioController");
 const crypto = require('crypto'); // Para generar el código de verificación
+const jwt = require('jsonwebtoken');
 const router = express.Router();
+
+const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
+
+// Middleware para verificar el token
+const verifyToken = (req, res, next) => {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    console.log('Token recibido en el middleware:', token); // Para depuración
+  
+    if (!token) {
+      return res.status(401).json({ message: 'Acceso denegado. No se proporcionó el token.' });
+    }
+  
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log('Token decodificado:', decoded); // Para verificar el contenido del token
+      req.userId = decoded.id; // Verifica que "id" exista en el token
+      next();
+    } catch (error) {
+      console.error('Error al verificar el token:', error); // Ver detalle del error
+      res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+  };
+  
+  
+
+// Ruta para obtener el perfil del usuario
+router.get('/perfil', verifyToken, async (req, res) => {
+  try {
+    // Usamos el id del usuario del token para buscar en la base de datos
+    const usuario = await UsuarioSchema.findById(req.userId);
+
+    if (!usuario) {
+      return res.status(404).json({ message: 'Usuario no encontrado.' });
+    }
+
+    // Excluir la contraseña y otros datos sensibles
+    const { contrasena, ...perfil } = usuario.toObject();
+    res.json(perfil); // Devolver los datos del perfil
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener el perfil del usuario' });
+  }
+});
 
 // Crear usuario
 router.post("/usuarios", async (req, res) => {
@@ -99,6 +142,71 @@ router.post("/usuarios/verico", async (req, res) => {
         res.status(500).json({ message: "Error interno del servidor" });
     }
 });
+
+
+// Ruta para actualizar el perfil del usuario
+router.put('/edit', verifyToken, async (req, res) => {
+    try {
+      // Obtener el id del usuario desde el token
+      const usuarioId = req.userId;
+      const { nombre, correo, telefono } = req.body; // Datos enviados por el cliente
+  
+      // Actualizar los datos del usuario en la base de datos
+      const usuario = await UsuarioSchema.findByIdAndUpdate(
+        usuarioId,
+        { nombre, correo, telefono },
+        { new: true } // Devuelve el documento actualizado
+      );
+  
+      if (!usuario) {
+        return res.status(404).json({ message: 'Usuario no encontrado.' });
+      }
+  
+      // Excluir la contraseña y otros datos sensibles
+      const { contrasena, ...perfil } = usuario.toObject();
+      res.json(perfil); // Devolver los datos actualizados
+    } catch (error) {
+      res.status(500).json({ message: 'Error al actualizar el perfil del usuario' });
+    }
+  });
+
+// Ruta para cambiar la contraseña
+router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
+    try {
+      const userId = req.userId;  // Obtener el ID del usuario desde el token
+      const { currentPassword, newPassword } = req.body; // Recibir las contraseñas actuales y nuevas del cuerpo de la solicitud
+  
+      // Buscar al usuario por su ID
+      const user = await UsuarioSchema.findById(userId);
+      
+      // Verificar si el usuario existe y si la contraseña actual es correcta
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+  
+      const isMatch = await bcryptjs.compare(currentPassword, user.contrasena);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Contraseña actual incorrecta' });
+      }
+  
+      // Verificar que la nueva contraseña no sea igual a la actual
+      if (currentPassword === newPassword) {
+        return res.status(400).json({ message: 'La nueva contraseña no puede ser la misma que la actual' });
+      }
+  
+      // Actualizar la contraseña
+      user.contrasena = await bcryptjs.hash(newPassword, 10);
+      await user.save();
+  
+      // Responder con éxito
+      res.json({ message: 'Contraseña actualizada con éxito' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error al cambiar la contraseña' });
+    }
+  });
+  
+  
 
 
 

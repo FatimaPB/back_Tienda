@@ -11,14 +11,10 @@ const DeslindeRoutes = require('./src/routes/Deslinde');
 const EmpresaRoutes = require('./src/routes/Empresa');
 const authRoutes = require('./src/routes/auth')
 
-// Configuración de CORS
-const corsOptions = {
-    origin: 'https://tienda-lib-cr.vercel.app', // Permite solo este dominio
-    credentials: true,  // Permite el uso de cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Encabezados permitidos
-  };
-  
+app.use(cors({
+    origin: 'https://tienda-lib-cr.vercel.app',  // Permite solicitudes solo desde este dominio
+    credentials: true  // Habilita el envío y la recepción de cookies
+}));
 
 
 require("dotenv").config();
@@ -27,11 +23,6 @@ const port = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(cors(corsOptions));
-
-
-  
 app.use(cookieParser());
 
 app.use('/api',UsuarioRoutes);

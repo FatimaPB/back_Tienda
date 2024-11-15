@@ -94,36 +94,37 @@ router.post("/usuarios", async (req, res) => {
         // Enviar correo con el código de verificación
   
 
-      const mailOptions = {
-          from: '"LibreriaCR"-' + process.env.EMAIL_USER + '-',
+        const mailOptions = {
+          from: '"LibreriaCR" <' + process.env.EMAIL_USER + '>',
           to: correo,
           subject: 'Verificación de tu cuenta',
           html: `
-          <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f4f4f9; border-radius: 8px; max-width: 600px; margin: auto;">
-              <h2 style="color: #4a90e2; text-align: center;">Verificación de tu cuenta</h2>
-              <p style="font-size: 16px; line-height: 1.6;">
-                  ¡Hola!<br><br>
-                  Gracias por registrarte en nuestra plataforma. Para completar tu registro, por favor verifica tu dirección de correo electrónico.
-              </p>
-              <div style="text-align: center; margin: 20px 0;">
-                  <p style="font-size: 18px; font-weight: bold;">Tu código de verificación es:</p>
-                  <p style="font-size: 24px; font-weight: bold; color: #4a90e2; background-color: #e6f0fb; padding: 10px 20px; border-radius: 8px; display: inline-block;">
-                      ${verificationCode}
+              <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f4f4f9; border-radius: 8px; max-width: 600px; margin: auto;">
+                  <h2 style="color: #4a90e2; text-align: center;">Verificación de tu cuenta</h2>
+                  <p style="font-size: 16px; line-height: 1.6;">
+                      ¡Hola!<br><br>
+                      Gracias por registrarte en nuestra plataforma. Para completar tu registro, por favor verifica tu dirección de correo electrónico.
+                  </p>
+                  <div style="text-align: center; margin: 20px 0;">
+                      <p style="font-size: 18px; font-weight: bold;">Tu código de verificación es:</p>
+                      <p style="font-size: 24px; font-weight: bold; color: #4a90e2; background-color: #e6f0fb; padding: 10px 20px; border-radius: 8px; display: inline-block;">
+                          ${verificationCode}
+                      </p>
+                  </div>
+                  <p style="font-size: 16px; line-height: 1.6;">
+                      Este código es válido solo durante los próximos 10 minutos. Ingresa este código en la plataforma para activar tu cuenta.
+                  </p>
+                  <p style="font-size: 16px; line-height: 1.6; color: #999;">
+                      Si no solicitaste esta verificación, ignora este mensaje.
+                  </p>
+                  <p style="font-size: 16px; line-height: 1.6;">
+                      ¡Gracias!<br>
+                      <strong>El equipo de soporte de LibreriaCR</strong>
                   </p>
               </div>
-              <p style="font-size: 16px; line-height: 1.6;">
-                  Ingresa este código en la plataforma para activar tu cuenta.
-              </p>
-              <p style="font-size: 16px; line-height: 1.6; color: #999;">
-                  Si no solicitaste esta verificación, ignora este mensaje.
-              </p>
-              <p style="font-size: 16px; line-height: 1.6;">
-                  ¡Gracias!<br>
-                  <strong>El equipo de soporte de LibreriaCR</strong>
-              </p>
-          </div>
           `
       };
+      
       
 
         // Envía el correo

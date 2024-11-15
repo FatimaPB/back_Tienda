@@ -92,8 +92,10 @@ router.post("/usuarios", async (req, res) => {
         await usuario.save();
 
         // Enviar correo con el código de verificación
-        const mailOptions = {
-          from: '"soporteLibreria" <' + process.env.EMAIL_USER + '>',
+  
+
+      const mailOptions = {
+          from: '"LibreriaCR" ' + process.env.EMAIL_USER + '',
           to: correo,
           subject: 'Verificación de tu cuenta',
           html: `

@@ -20,9 +20,33 @@ exports.recuperarContrasena = async (req, res) => {
         const mailOptions = {
             to: correo,
             subject: 'Código de verificación para recuperación de contraseña',
-            text: `Tu código de verificación es: ${codigo}. Este código es válido por 10 minutos.`,
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f4f4f9; border-radius: 8px; max-width: 600px; margin: auto;">
+                    <h2 style="color: #4a90e2; text-align: center;">Recuperación de tu contraseña</h2>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        ¡Hola!<br><br>
+                        Hemos recibido una solicitud para recuperar la contraseña de tu cuenta. Para completar el proceso, por favor ingresa el siguiente código de verificación en nuestra plataforma.
+                    </p>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <p style="font-size: 18px; font-weight: bold;">Tu código de verificación es:</p>
+                        <p style="font-size: 24px; font-weight: bold; color: #4a90e2; background-color: #e6f0fb; padding: 10px 20px; border-radius: 8px; display: inline-block;">
+                            ${codigo}
+                        </p>
+                    </div>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        Este código es válido solo durante los próximos 10 minutos. Ingresa este código en la plataforma para recuperar tu contraseña.
+                    </p>
+                    <p style="font-size: 16px; line-height: 1.6; color: #999;">
+                        Si no solicitaste esta recuperación de contraseña, ignora este mensaje.
+                    </p>
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        ¡Gracias!<br>
+                        <strong>El equipo de soporte de LibreriaCR</strong>
+                    </p>
+                </div>
+            `
         };
-
+        
         await transporter.sendMail(mailOptions);
         res.json({ message: 'Se ha enviado un código de verificación a tu correo' });
     } catch (error) {

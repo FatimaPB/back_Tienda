@@ -95,7 +95,7 @@ router.post("/usuarios", async (req, res) => {
   
 
       const mailOptions = {
-          from: '"LibreriaCR" ' + process.env.EMAIL_USER + '',
+          from: '"LibreriaCR"-' + process.env.EMAIL_USER + '-',
           to: correo,
           subject: 'Verificación de tu cuenta',
           html: `
@@ -119,7 +119,7 @@ router.post("/usuarios", async (req, res) => {
               </p>
               <p style="font-size: 16px; line-height: 1.6;">
                   ¡Gracias!<br>
-                  <strong>El equipo de soporte de soporteLibreria</strong>
+                  <strong>El equipo de soporte de LibreriaCR</strong>
               </p>
           </div>
           `

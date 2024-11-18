@@ -24,7 +24,7 @@ router.post('/login', async (req, res) => {
         const { success } = response.data;
     
         if (!success) {
-            return res.status(400).json({ message: 'Error de verificación de reCAPTCHA.' });
+            return res.status(400).json({ message: '' });
         }
     
         // Buscar al usuario por correo

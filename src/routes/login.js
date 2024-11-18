@@ -57,7 +57,7 @@ router.post('/login', async (req, res) => {
             }
 
             await usuario.save(); // Guarda los cambios en la base de datos
-            return res.status(400).json({ message: 'Correo o contraseña incorrectos' });
+            return res.status(400).json({ message: 'Credenciales invalidas' });
         }
 
         // Reiniciar los intentos fallidos si la contraseña es válida

@@ -10,6 +10,7 @@ const TerminosycondicionesRoutes = require('./src/routes/Terminosycondiciones');
 const DeslindeRoutes = require('./src/routes/Deslinde');
 const EmpresaRoutes = require('./src/routes/Empresa');
 const authRoutes = require('./src/routes/auth')
+const limiteIntentosRoutes = require('./src/routes/limiteIntentosRoutes');
 
 const corsOptions = {
     origin: 'https://tienda-lib-cr.vercel.app',  // Permite solo este dominio
@@ -41,6 +42,7 @@ app.use('/api',TerminosycondicionesRoutes);
 app.use('/api',DeslindeRoutes);
 app.use('/api',EmpresaRoutes);
 app.use('/api',authRoutes);
+app.use('/api', limiteIntentosRoutes);
 
 //Rutas
 app.get("/", (req, res) => {

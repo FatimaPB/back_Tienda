@@ -50,12 +50,14 @@ router.post('/login', async (req, res) => {
             // Aumentar el contador de intentos fallidos
             usuario.failedAttempts += 1;
 
-            // Bloquear la cuenta si se superan los 5 intentos
-            if (usuario.failedAttempts >= 5) {
-                usuario.isBlocked = true;
-                usuario.blockedUntil = new Date(Date.now() + 2 * 60 * 1000); 
-            }
-
+                  // Consultar el límite de intentos global
+                  const limite = await LimiteIntentos.findOne();
+                  const maxFailedAttempts = limite?.maxFailedAttempts || 5;
+      
+                  if (usuario.failedAttempts >= maxFailedAttempts) {
+                      usuario.isBlocked = true;
+                      usuario.blockedUntil = new Date(Date.now() + 5 * 60 * 1000); // Bloqueo por 15 minutos
+                  }
             await usuario.save(); // Guarda los cambios en la base de datos
             return res.status(400).json({ message: 'Credenciales invalidas' });
         }

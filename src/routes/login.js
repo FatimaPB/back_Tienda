@@ -3,6 +3,7 @@ const bcryptjs = require('bcryptjs');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const UsuarioSchema = require('../models/usuarios'); // Asegúrate de importar tu modelo de usuario
+const LimiteIntentos = require('../models/LimiteIntentos')
 const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno

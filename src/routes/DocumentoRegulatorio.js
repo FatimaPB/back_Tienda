@@ -11,6 +11,8 @@ router.post('/documentos', async (req, res) => {
     }
   
     try {
+
+      await DocumentoRegulatorio.updateMany({ vigente: true }, { vigente: false });
       // Crear un nuevo documento regulatorio
       const nuevoDocumento = new DocumentoRegulatorio({
         titulo,

@@ -106,7 +106,7 @@ exports.restablecerContrasena = async (req, res) => {
         await usuario.save();
 
         const ip = req.ip;  // La IP del usuario
-        await registrarActividad(usuario._id, 'Restablecimineto de contrasena', ip, 'Restablecimineto de contrasena exitoso');
+        await registrarActividad(usuario._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
 
 
         delete verificationCodes[correo];

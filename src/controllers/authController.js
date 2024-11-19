@@ -2,6 +2,7 @@
 const bcryptjs = require('bcryptjs');
 const Usuario = require('../models/usuarios');
 const transporter = require('../config/nodemailer');
+const Actividad = require('../models/actividad.model');
 
 // Almacenar temporalmente los códigos de verificación
 let verificationCodes = {}; // { correo: { codigo: '123456', fecha: Date } }
@@ -73,6 +74,25 @@ exports.verificarCodigo = (req, res) => {
     return res.status(400).json({ message: 'Código de verificación incorrecto' });
 };
 
+// Función para registrar la actividad
+async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
+    try {
+        // Registrar la actividad en la base de datos
+        const actividad = new Actividad({
+            usuarioId,
+            tipo,
+            ip,
+            detalles,
+        });
+
+        // Guardar la actividad
+        await actividad.save();
+        console.log(`Actividad registrada: ${tipo}`);
+    } catch (error) {
+        console.error('Error al registrar la actividad:', error);
+    }
+}
+
 exports.restablecerContrasena = async (req, res) => {
     const { correo, nuevaContrasena } = req.body;
 
@@ -85,7 +105,13 @@ exports.restablecerContrasena = async (req, res) => {
         usuario.contrasena = await bcryptjs.hash(nuevaContrasena, 10);
         await usuario.save();
 
+        const ip = req.ip;  // La IP del usuario
+        await registrarActividad(usuario._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
+
+
         delete verificationCodes[correo];
+
+
 
         res.json({ message: 'Contraseña restablecida exitosamente' });
     } catch (error) {

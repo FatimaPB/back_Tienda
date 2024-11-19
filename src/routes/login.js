@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
             res.cookie('authToken', token, {
                 httpOnly: true,          // No accesible desde JavaScript en el navegador
                 secure: true,             // Solo se envía en conexiones HTTPS
-                sameSite: true,       // Solo se envía en solicitudes del mismo sitio
+                sameSite: 'None',       // Solo se envía en solicitudes del mismo sitio
                 maxAge: 60 * 60 * 1000    // Expira en 1 hora
             });
 
@@ -126,7 +126,7 @@ router.post('/logout', async (req, res) => {
         res.clearCookie('authToken', {
             httpOnly: true,
             secure: true,
-            sameSite: true,
+            sameSite: 'None',
         });
 
         // Puedes registrar la actividad del cierre de sesión, si es necesario

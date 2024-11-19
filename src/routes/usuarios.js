@@ -305,11 +305,11 @@ router.post('/configurar-intentos', async (req, res) => {
 });
 
 
-// Ruta para obtener todas las actividades
+// Ruta para obtener todas las actividades sin hacer populate
 router.get('/actividad', async (req, res) => {
   try {
-      // Obtener todas las actividades de la base de datos
-      const actividades = await Actividad.find().populate('usuarioId', 'correo tipoUsuario').exec();  // Puedes modificar para incluir más detalles si es necesario
+      // Obtener todas las actividades de la base de datos sin el populate
+      const actividades = await Actividad.find();  // Solo recuperamos los datos de la colección 'Actividad'
 
       if (actividades.length === 0) {
           return res.status(404).json({ message: 'No se encontraron actividades.' });
@@ -322,6 +322,7 @@ router.get('/actividad', async (req, res) => {
       res.status(500).json({ message: 'Error al obtener las actividades.' });
   }
 });
+
 // Ruta para manejar intentos fallidos
 router.post('/bloquear-por-intentos', manejarIntentosFallidos);
 

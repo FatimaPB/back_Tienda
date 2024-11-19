@@ -303,6 +303,24 @@ router.post('/configurar-intentos', async (req, res) => {
     }
 });
 
+
+// Ruta para obtener todas las actividades
+router.get('/actividad', async (req, res) => {
+  try {
+      // Obtener todas las actividades de la base de datos
+      const actividades = await Actividad.find().populate('usuarioId', 'correo tipoUsuario').exec();  // Puedes modificar para incluir más detalles si es necesario
+
+      if (actividades.length === 0) {
+          return res.status(404).json({ message: 'No se encontraron actividades.' });
+      }
+
+      // Devolver las actividades
+      res.json({ actividades });
+  } catch (error) {
+      console.error('Error al obtener las actividades:', error);
+      res.status(500).json({ message: 'Error al obtener las actividades.' });
+  }
+});
 // Ruta para manejar intentos fallidos
 router.post('/bloquear-por-intentos', manejarIntentosFallidos);
 

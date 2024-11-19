@@ -4,9 +4,30 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const UsuarioSchema = require('../models/usuarios'); // Asegúrate de importar tu modelo de usuario
 const LimiteIntentos = require('../models/LimiteIntentos')
+const Actividad = require('../models/actividad.model');
 const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
+
+// Función para registrar la actividad
+async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
+    try {
+        // Registrar la actividad en la base de datos
+        const actividad = new Actividad({
+            usuarioId,
+            tipo,
+            ip,
+            detalles,
+        });
+
+        // Guardar la actividad
+        await actividad.save();
+        console.log(`Actividad registrada: ${tipo}`);
+    } catch (error) {
+        console.error('Error al registrar la actividad:', error);
+    }
+}
+
 
 // Ruta para iniciar sesión
 router.post('/login', async (req, res) => {
@@ -77,6 +98,10 @@ router.post('/login', async (req, res) => {
             JWT_SECRET,
             { expiresIn: '1h' } // El token expira en 1 hora
         );
+
+           // Registrar la actividad de inicio de sesión
+           const ip = req.ip;  // La IP del usuario
+           await registrarActividad(usuario._id, 'Inicio de sesión', ip, 'Inicio de sesión exitoso');
 
             // Configurar la cookie con el token
             res.cookie('authToken', token, {

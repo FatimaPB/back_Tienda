@@ -105,7 +105,7 @@ exports.restablecerContrasena = async (req, res) => {
         usuario.contrasena = await bcryptjs.hash(nuevaContrasena, 10);
         await usuario.save();
 
-        const ip = req.ip;  // La IP del usuario
+        const ip = req.ip;
         await registrarActividad(usuario._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
 
 

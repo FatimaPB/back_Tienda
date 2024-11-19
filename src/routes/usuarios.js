@@ -207,6 +207,27 @@ router.put('/edit', verifyToken, async (req, res) => {
     }
   });
 
+
+  // Función para registrar la actividad
+async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
+  try {
+      // Registrar la actividad en la base de datos
+      const actividad = new Actividad({
+          usuarioId,
+          tipo,
+          ip,
+          detalles,
+      });
+
+      // Guardar la actividad
+      await actividad.save();
+      console.log(`Actividad registrada: ${tipo}`);
+  } catch (error) {
+      console.error('Error al registrar la actividad:', error);
+  }
+}
+
+
 // Ruta para cambiar la contraseña
 router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
     try {
@@ -234,6 +255,9 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
       // Actualizar la contraseña
       user.contrasena = await bcryptjs.hash(newPassword, 10);
       await user.save();
+
+      const ip = req.ip;
+      await registrarActividad(usuario._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
   
       // Responder con éxito
       res.json({ message: 'Contraseña actualizada con éxito' });

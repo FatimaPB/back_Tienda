@@ -257,8 +257,7 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
       await user.save();
 
       const ip = req.ip;
-      await registrarActividad(usuario._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
-  
+      await registrarActividad(user._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
       // Responder con éxito
       res.json({ message: 'Contraseña actualizada con éxito' });
     } catch (error) {
@@ -266,10 +265,6 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
       res.status(500).json({ message: 'Error al cambiar la contraseña' });
     }
   });
-  
-  
-
-
 
 // Obtener
 router.get("/usuarios", async (req, res) => {

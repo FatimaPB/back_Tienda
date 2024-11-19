@@ -43,7 +43,7 @@ router.post('/deslinde/:id/version', async (req, res) => {
   
       // Crear una nueva versión
       const nuevaVersion = new Deslinde({
-        titulo,
+        titulo: documentoOriginal.titulo,
         contenido,
         fechaVigencia,
         version: (parseFloat(documentoOriginal.version) + 1).toFixed(1), // Incrementar la versión

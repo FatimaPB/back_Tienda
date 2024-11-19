@@ -13,11 +13,25 @@ router.post('/documentos', async (req, res) => {
     try {
 
       await DocumentoRegulatorio.updateMany({ vigente: true }, { vigente: false });
+
+       // Buscar la versión más alta existente
+    const ultimoDocumento = await DocumentoRegulatorio.findOne().sort({ version: -1 });
+
+    // Calcular la nueva versión
+    let nuevaVersion = "1.0"; // Valor por defecto para el primer documento
+    if (ultimoDocumento && ultimoDocumento.version) {
+      const versionMasAlta = Math.floor(parseFloat(ultimoDocumento.version)); // Obtener la parte entera de la versión más alta
+      nuevaVersion = (versionMasAlta + 1).toFixed(1); // Incrementar a la siguiente versión mayor
+    }
+
       // Crear un nuevo documento regulatorio
       const nuevoDocumento = new DocumentoRegulatorio({
         titulo,
         contenido,
-        fechaVigencia
+        fechaVigencia,
+        version: nuevaVersion, // Asignar la nueva versión calculada
+        vigente: true, // Marcar como vigente
+        eliminado: false // Marcar como no eliminado
       });
   
       const documentoGuardado = await nuevoDocumento.save();
@@ -48,7 +62,7 @@ router.post('/documentos/:id/version', async (req, res) => {
         titulo: documentoOriginal.titulo,
         contenido,
         fechaVigencia,
-        version: (parseFloat(documentoOriginal.version) + 1).toFixed(1), // Incrementar la versión
+        version: (parseFloat(documentoOriginal.version) + 0.1).toFixed(1), // Incrementar la versión
         eliminado: false, // Marcar como no eliminado
         vigente: true // La nueva versión será vigente
       });

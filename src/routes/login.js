@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
             res.cookie('authToken', token, {
                 httpOnly: true,          // No accesible desde JavaScript en el navegador
                 secure: true,             // Solo se envía en conexiones HTTPS
-                sameSite: 'None',       // Solo se envía en solicitudes del mismo sitio
+                sameSite: true,       // Solo se envía en solicitudes del mismo sitio
                 maxAge: 60 * 60 * 1000    // Expira en 1 hora
             });
 
@@ -119,5 +119,29 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Error en el servidor' });
     }
 });
+
+router.post('/logout', async (req, res) => {
+    try {
+        // Eliminar la cookie de sesión
+        res.clearCookie('authToken', {
+            httpOnly: true,
+            secure: true,
+            sameSite: true,
+        });
+
+        // Puedes registrar la actividad del cierre de sesión, si es necesario
+        const ip = req.ip; // IP del usuario
+        const usuarioId = req.body.usuarioId; // Asegúrate de enviar el ID del usuario en el cuerpo de la solicitud
+        if (usuarioId) {
+            await registrarActividad(usuarioId, 'Cierre de sesión', ip, 'Cierre de sesión exitoso');
+        }
+
+        res.json({ message: 'Sesión cerrada exitosamente' });
+    } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+        res.status(500).json({ message: 'Error al cerrar sesión' });
+    }
+});
+
 
 module.exports = router;

@@ -5,6 +5,7 @@ const UsuarioSchema = require("../models/usuarios");
 const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = require("../controllers/usuarioController");
 const crypto = require('crypto'); // Para generar el código de verificación
 const jwt = require('jsonwebtoken');
+const Actividad = require('../models/actividad.model');
 const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno

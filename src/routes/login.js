@@ -15,7 +15,6 @@ async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
         // Registrar la actividad en la base de datos
         const actividad = new Actividad({
             usuarioId,
-            correo,
             tipo,
             ip,
             detalles,

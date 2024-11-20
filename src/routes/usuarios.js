@@ -328,7 +328,7 @@ router.post('/configurar-intentos', async (req, res) => {
 router.get('/actividad', async (req, res) => {
   try {
       // Obtener todas las actividades de la base de datos sin el populate
-      const actividades = await Actividad.find();  // Solo recuperamos los datos de la colección 'Actividad'
+      const actividades = await Actividad.find(). populate('usuarioId','correo');  // Solo recuperamos los datos de la colección 'Actividad'
 
       if (actividades.length === 0) {
           return res.status(404).json({ message: 'No se encontraron actividades.' });

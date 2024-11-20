@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 
 const actividadSchema = new mongoose.Schema({
   usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
-  correo: { type: String, required: true }, // Campo para almacenar el correo del usuario
   tipo: { type: String, required: true }, // Ej.: "Inicio de sesión", "Cambio de contraseña"
   fecha: { type: Date, default: Date.now },
   ip: { type: String }, // Opcional: registra la IP del usuario

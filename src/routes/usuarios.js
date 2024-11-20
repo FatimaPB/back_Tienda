@@ -236,7 +236,6 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
   
       // Buscar al usuario por su ID
       const user = await UsuarioSchema.findById(userId);
-      
       // Verificar si el usuario existe y si la contraseña actual es correcta
       if (!user) {
         return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -246,14 +245,32 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
       if (!isMatch) {
         return res.status(400).json({ message: 'Contraseña actual incorrecta' });
       }
+
+        // Verificar si la nueva contraseña ya fue usada antes
+    for (const contrasenaHash of user.contrasenasAnteriores || []) {
+      const coincide = await bcryptjs.compare(newPassword, contrasenaHash);
+      if (coincide) {
+        return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a una anterior.' });
+      }
+    }
   
       // Verificar que la nueva contraseña no sea igual a la actual
       if (currentPassword === newPassword) {
         return res.status(400).json({ message: 'La nueva contraseña no puede ser la misma que la actual' });
       }
   
-      // Actualizar la contraseña
-      user.contrasena = await bcryptjs.hash(newPassword, 10);
+   // Hacer hash de la nueva contraseña y actualizar
+   const nuevaContrasenaHash = await bcryptjs.hash(newPassword, 10);
+   user.contrasena = nuevaContrasenaHash;
+
+   // Guardar la contraseña en el historial
+   user.contrasenasAnteriores = user.contrasenasAnteriores || [];
+   user.contrasenasAnteriores.push(nuevaContrasenaHash);
+
+   // Limitar el historial a las últimas 5 contraseñas
+   if (user.contrasenasAnteriores.length > 5) {
+     user.contrasenasAnteriores.shift(); // Eliminar la más antigua
+   }
       await user.save();
 
       const ip = req.ip;

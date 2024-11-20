@@ -42,7 +42,7 @@ const UsuarioSchema = new mongoose.Schema({
         default: null 
     } ,
 
-    contraseñasAnteriores: [{ type: String }], // Historial de contraseñas
+    contrasenasAnteriores: [{ type: String }], // Historial de contraseñas
 });
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);

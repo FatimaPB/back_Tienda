@@ -247,14 +247,12 @@ router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
         return res.status(400).json({ message: 'Contraseña actual incorrecta' });
       }
   
-      // Verificar que la nueva contraseña no sea igual a la actual
-      if (currentPassword === newPassword) {
-        return res.status(400).json({ message: 'La nueva contraseña no puede ser la misma que la actual' });
-      }
-  
-      // Actualizar la contraseña
-      user.contrasena = await bcryptjs.hash(newPassword, 10);
-      await user.save();
+  // Intentar cambiar la contraseña utilizando el método del modelo
+  try {
+    await user.cambiarContrasena(newPassword); // Usar método del modelo para gestionar la lógica
+  } catch (error) {
+    return res.status(400).json({ message: error.message }); // Responder si la nueva contraseña ya fue usada
+  }
 
       const ip = req.ip;
       await registrarActividad(user._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');

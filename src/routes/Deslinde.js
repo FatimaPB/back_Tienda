@@ -12,10 +12,10 @@ router.post('/deslinde', async (req, res) => {
   
     try {
 
-      await DocumentoRegulatorio.updateMany({ vigente: true }, { vigente: false });
+      await Deslinde.updateMany({ vigente: true }, { vigente: false });
 
       // Buscar la versión más alta existente
-      const ultimoDocumento = await DocumentoRegulatorio.findOne().sort({ version: -1 });
+      const ultimoDocumento = await Deslinde.findOne().sort({ version: -1 });
 
       // Calcular la nueva versión
       let nuevaVersion = "1.0"; // Valor por defecto para el primer documento

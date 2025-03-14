@@ -1,8 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const db = require('./src/config/db'); // Importar la conexión a MySQL
 const cors = require('cors');
-const https = require('https');
+
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const UsuarioRoutes = require('./src/routes/usuarios');
@@ -34,13 +33,6 @@ const corsOptions = {
 
 require("dotenv").config();
 const app = express();
-
-// Rutas a los certificados generados
-const key = fs.readFileSync('C:/nginx-1.26.2/ssl/libreriacristorey.key', 'utf8');
-const cert = fs.readFileSync('C:/nginx-1.26.2/ssl/libreriacristorey.crt', 'utf8');
-
-// Configurar servidor HTTPS
-const server = https.createServer({ key, cert }, app);
 
 
 const port = process.env.PORT || 3000;

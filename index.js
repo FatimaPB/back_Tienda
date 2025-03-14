@@ -22,7 +22,7 @@ const nosotrosRoutes = require('./src/routes/nosotros');
 const metodoPagoRouter=require('./src/routes/metodos_pago');
 
 const corsOptions = {
-    origin: ['http://localhost:3000', 'http://localhost', 'http://localhost:4200'], // Permite solo desde localhost
+    origin: ['http://localhost:3000', 'http://localhost', 'http://localhost:4200','https://tienda-lib-cr.vercel.app'], // Permite solo desde localhost
     credentials: true,  // Permite el uso de cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Métodos permitidos
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Encabezados permitidos

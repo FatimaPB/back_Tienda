@@ -1,5 +1,5 @@
 const express = require("express");
-const Color = require("../models/color");
+const Color = require("../models/Color");
 const router = express.Router();
 
 // 🔹 Agregar una nueva color

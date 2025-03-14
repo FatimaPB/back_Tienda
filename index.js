@@ -1,6 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const db = require('./src/config/db'); // Importar la conexión a MySQL
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const UsuarioRoutes = require('./src/routes/usuarios');
 const loginRoutes = require('./src/routes/login');
@@ -11,9 +14,16 @@ const DeslindeRoutes = require('./src/routes/Deslinde');
 const EmpresaRoutes = require('./src/routes/Empresa');
 const authRoutes = require('./src/routes/auth')
 const limiteIntentosRoutes = require('./src/routes/limiteIntentosRoutes');
+const CategoriaRoutes = require('./src/routes/Cateoria');
+const ColorRoutes = require('./src/routes/Color');
+const TamanosRoutes = require('./src/routes/Tamanos')
+const productosRoutes = require('./src/routes/productos');
+const bannerRoutes = require('./src/routes/banner');
+const nosotrosRoutes = require('./src/routes/nosotros');
+const metodoPagoRouter=require('./src/routes/metodos_pago');
 
 const corsOptions = {
-    origin: 'https://tienda-lib-cr.vercel.app',  // Permite solo este dominio
+    origin: ['http://localhost:3000', 'http://localhost', 'http://localhost:4200'], // Permite solo desde localhost
     credentials: true,  // Permite el uso de cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Métodos permitidos
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Encabezados permitidos
@@ -24,6 +34,15 @@ const corsOptions = {
 
 require("dotenv").config();
 const app = express();
+
+// Rutas a los certificados generados
+const key = fs.readFileSync('C:/nginx-1.26.2/ssl/libreriacristorey.key', 'utf8');
+const cert = fs.readFileSync('C:/nginx-1.26.2/ssl/libreriacristorey.crt', 'utf8');
+
+// Configurar servidor HTTPS
+const server = https.createServer({ key, cert }, app);
+
+
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
@@ -43,60 +62,32 @@ app.use('/api',DeslindeRoutes);
 app.use('/api',EmpresaRoutes);
 app.use('/api',authRoutes);
 app.use('/api', limiteIntentosRoutes);
+app.use('/api', CategoriaRoutes);
+app.use('/api', ColorRoutes);
+app.use('/api', TamanosRoutes);
+app.use('/api', productosRoutes);
+app.use('/api', bannerRoutes);
+app.use('/api', nosotrosRoutes);
+app.use('/api', metodoPagoRouter);
+
 
 //Rutas
 app.get("/", (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Bienvenido a mi API</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f0f0f0;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                }
-                .container {
-                    text-align: center;
-                    padding: 20px;
-                    background-color: #fff;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                    border-radius: 8px;
-                }
-                h1 {
-                    color: #333;
-                    font-size: 2rem;
-                    margin-bottom: 10px;
-                }
-                p {
-                    color: #666;
-                    font-size: 1rem;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Bienvenido a mi API de catedral :)</h1>
-                <p>Gracias por visitarnos. ¡Esperamos que disfrutes explorando nuestra API!</p>
-            </div>
-        </body>
-        </html>
-    `);
+    res.send("Servidor funcionando");
 });
 
-//conexion a mongoose
+// Ruta de prueba para verificar la conexión a MySQL
+app.get("/test-db", (req, res) => {
+    db.query('SELECT NOW() as fecha_actual', (err, results) => {
+        if (err) {
+            console.error('❌ Error ejecutando la consulta:', err);
+            return res.status(500).json({ error: 'Error conectando a la base de datos' });
+        }
+        res.json({ mensaje: "✅ Conexión exitosa a MySQL db libreria", servidor_hora: results[0].fecha_actual });
+    });
+});
 
-mongoose
-    .connect(process.env.MONGODB_URI)
-    .then(()=> console.log("conectado a mongo atlas base catedral"))
-    .catch((error)=> console.error(error));
-
-app.listen(port, () => console.log('servidor escuchando en el puerto', port));
+app.listen(port, () => {
+    console.log(`🚀 Servidor escuchando en el puerto ${port}`);
+});
 

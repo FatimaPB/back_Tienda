@@ -19,7 +19,7 @@ const UsuarioSchema = new mongoose.Schema({
     },
     tipoUsuario: {
         type: String,
-        default: 'Cliente'
+        default: 'empleado'
     },
     isVerified: {
         type: Boolean,

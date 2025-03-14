@@ -6,179 +6,618 @@ const { manejarIntentosFallidos, obtenerUsuariosBloqueados, bloquearUsuario } = 
 const crypto = require('crypto'); // Para generar el código de verificación
 const jwt = require('jsonwebtoken');
 const Actividad = require('../models/actividad.model');
+const db = require('../config/db'); // Importar la conexión a MySQL
 const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
 
-// Middleware para verificar el token desde cookies o desde el encabezado
-const verifyToken = (req, res, next) => {
-  // Intenta obtener el token desde las cookies
-  let token = req.cookies.authToken;
+// Middleware para verificar el token JWT
+function verifyToken(req, res, next) {
+  const token = req.cookies.authToken; // Obtener el token de la cookie
 
-  // Si no se encuentra el token en las cookies, intenta obtenerlo del encabezado
   if (!token) {
-    token = req.header('Authorization')?.replace('Bearer ', '');
+      return res.status(401).json({ message: 'Token no proporcionado' });
   }
 
-  // Si no se encuentra el token en ninguno de los dos lugares, retorna un error
-  if (!token) {
-    return res.status(401).json({ message: 'Acceso denegado. No se proporcionó el token.' });
+  // Verificar el token
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (err) {
+          return res.status(403).json({ message: 'Token inválido' });
+      }
+      
+      req.usuario = decoded; // Agregar el usuario decodificado a la solicitud
+      next(); // Continuar con la siguiente ruta
+  });
+}
+
+// Endpoint para verificar la autenticación
+router.get('/check-auth', verifyToken, (req, res) => {
+  // Si llega aquí, significa que el token es válido y req.usuario está disponible
+  res.json({
+    authenticated: true,
+    rol: req.usuario.rol,
+    usuario: req.usuario // opcional, según la información que quieras devolver
+  });
+});
+// Obtener carrito del usuario autenticado
+router.get('/carrito', verifyToken, (req, res) => {
+  db.query(
+    `SELECT ac.id, ac.producto_id, p.nombre, p.precio_calculado, ac.cantidad, 
+            (SELECT GROUP_CONCAT(url) FROM imagenes WHERE producto_id = p.id) AS imagenes
+     FROM productos_carrito ac 
+     JOIN productos p ON ac.producto_id = p.id
+     WHERE ac.usuario_id = ?
+     GROUP BY ac.id`,  // Agrupar por artículo en el carrito
+    [req.usuario.id],
+    (error, results) => {
+      if (error) {
+        console.error('Error al obtener el carrito:', error);
+        return res.status(500).json({ message: 'Error al obtener el carrito' });
+      }
+
+      // Transformar la cadena de imágenes en un array
+      results = results.map(item => ({
+        ...item,
+        imagenes: item.imagenes ? item.imagenes.split(',') : []  // Convierte la cadena en array
+      }));
+
+      res.json(results);
+    }
+  );
+});
+
+// Agregar producto al carrito
+router.post('/carrito/agregar', verifyToken, (req, res) => {
+  const { producto_id, cantidad } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!producto_id || cantidad <= 0) {
+    return res.status(400).json({ message: 'Datos inválidos' });
   }
 
-  try {
-    // Decodifica el token y extrae el ID del usuario
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.id; // Verifica que "id" exista en el token
-    next();
-  } catch (error) {
-    console.error('Error al verificar el token:', error); // Ver detalle del error
-    res.status(401).json({ message: 'Token inválido o expirado.' });
+  // Verificar si el producto ya está en el carrito
+  db.query(
+    'SELECT cantidad FROM productos_carrito WHERE usuario_id = ? AND producto_id = ?',
+    [usuario_id, producto_id],
+    (error, results) => {
+      if (error) {
+        console.error('Error al buscar producto en el carrito:', error);
+        return res.status(500).json({ message: 'Error al buscar producto' });
+      }
+
+      if (results.length > 0) {
+        const nuevaCantidad = results[0].cantidad + cantidad;
+
+        if (nuevaCantidad > 0) {
+          // Actualizar cantidad si es mayor que 0
+          db.query(
+            'UPDATE productos_carrito SET cantidad = ? WHERE usuario_id = ? AND producto_id = ?',
+            [nuevaCantidad, usuario_id, producto_id],
+            (updateError) => {
+              if (updateError) {
+                console.error('Error al actualizar cantidad:', updateError);
+                return res.status(500).json({ message: 'Error al actualizar cantidad' });
+              }
+              res.json({ message: 'Cantidad actualizada en el carrito' });
+            }
+          );
+        } else {
+          // Eliminar si la cantidad es 0
+          db.query(
+            'DELETE FROM productos_carrito WHERE usuario_id = ? AND producto_id = ?',
+            [usuario_id, producto_id],
+            (deleteError) => {
+              if (deleteError) {
+                console.error('Error al eliminar producto del carrito:', deleteError);
+                return res.status(500).json({ message: 'Error al eliminar producto' });
+              }
+              res.json({ message: 'Producto eliminado del carrito' });
+            }
+          );
+        }
+      } else {
+        // Insertar nuevo producto
+        db.query(
+          'INSERT INTO productos_carrito (usuario_id, producto_id, cantidad) VALUES (?, ?, ?)',
+          [usuario_id, producto_id, cantidad],
+          (insertError) => {
+            if (insertError) {
+              console.error('Error al agregar producto al carrito:', insertError);
+              return res.status(500).json({ message: 'Error al agregar producto' });
+            }
+            res.json({ message: 'Producto agregado al carrito' });
+          }
+        );
+      }
+    }
+  );
+});
+
+// Vaciar carrito
+router.post('/carrito/limpiar', verifyToken, (req, res) => {
+  db.query(
+    'DELETE FROM productos_carrito WHERE usuario_id = ?',
+    [req.usuario.id],
+    (error) => {
+      if (error) {
+        console.error('Error al limpiar el carrito:', error);
+        return res.status(500).json({ message: 'Error al limpiar el carrito' });
+      }
+      res.json({ message: 'Carrito vaciado' });
+    }
+  );
+});
+//simulacion de copras
+router.post('/comprar', verifyToken, (req, res) => {
+  const { productos, total, metodoPago, direccionEnvio } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!productos || productos.length === 0) {
+    return res.status(400).json({ message: 'El carrito está vacío' });
   }
-};
+
+   // Determinar el estado de la venta según el método de pago:
+  // Ejemplo: si el método de pago es 'efectivo' (supongamos que su id es 3), queda pendiente, de lo contrario, pagado.
+  const estadoVenta = (metodoPago == 3) ? 'pendiente' : 'pagado';
+
+  // Obtener una conexión del pool
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Error al obtener conexión:', err);
+      return res.status(500).json({ message: 'Error en la compra' });
+    }
+
+    // Iniciar transacción
+    connection.beginTransaction((err) => {
+      if (err) {
+        console.error('Error al iniciar transacción:', err);
+        connection.release();
+        return res.status(500).json({ message: 'Error en la compra' });
+      }
+
+      // Insertar la venta (incluyendo el estado)
+      connection.query(
+        `INSERT INTO ventas (usuario_id, total, metodo_pago_id, direccion_envio, estado) VALUES (?, ?, ?, ?, ?)`,
+        [usuario_id, total, metodoPago, direccionEnvio || null, estadoVenta],
+        (error, result) => {
+          if (error) {
+            console.error('Error al registrar la venta:', error);
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: 'Error al registrar la venta' });
+            });
+          }
+
+          const venta_id = result.insertId;
+
+       // Insertar productos en detalle_ventas
+       const valoresProductos = productos.map(p => [venta_id, p.producto_id, p.cantidad, p.precio_calculado]);
+
+       connection.query(
+         `INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES ?`,
+         [valoresProductos],
+         (errorDetalle) => {
+           if (errorDetalle) {
+             console.error('Error al registrar productos:', errorDetalle);
+             return connection.rollback(() => {
+               connection.release();
+               res.status(500).json({ message: 'Error al registrar productos' });
+             });
+           }
+      // Eliminar carrito del usuario
+      connection.query(
+        `DELETE FROM productos_carrito WHERE usuario_id = ?`,
+        [usuario_id],
+        (errorCarrito) => {
+          if (errorCarrito) {
+            console.error('Error al limpiar el carrito:', errorCarrito);
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: 'Error al limpiar el carrito' });
+            });
+          }
+ // Registrar en el historial de ventas (estado inicial: 'N/A' -> estadoVenta)
+ connection.query(
+  `INSERT INTO ventas_historial (venta_id, estado_anterior, estado_nuevo, cambio_por) VALUES (?, ?, ?, ?)`,
+  [venta_id, 'N/A', estadoVenta, 'Sistema'],
+  (errorHistorial) => {
+    if (errorHistorial) {
+      console.error('Error al registrar historial de ventas:', errorHistorial);
+      return connection.rollback(() => {
+        connection.release();
+        res.status(500).json({ message: 'Error al registrar historial de ventas' });
+      });
+    }
+
+  // Confirmar transacción
+  connection.commit((commitErr) => {
+    if (commitErr) {
+      console.error('Error al confirmar la compra:', commitErr);
+      return connection.rollback(() => {
+        connection.release();
+        res.status(500).json({ message: 'Error al confirmar la compra' });
+      });
+    }
+
+    connection.release();
+    res.json({ message: 'Compra realizada con éxito', venta_id });
+  });
+}
+);
+}
+);
+}
+);
+}
+);
+});
+});
+});
+
+router.put('/ventas/:ventaId/estado', verifyToken, (req, res) => {
+  const { ventaId } = req.params;
+  const { nuevoEstado, cambioPor } = req.body; // nuevoEstado: 'pendiente', 'pagado' o 'cancelado'
+
+  // Primero, obtener la venta actual para conocer el estado anterior
+  db.query('SELECT estado FROM ventas WHERE id = ?', [ventaId], (err, results) => {
+    if (err) {
+      console.error('Error al obtener la venta:', err);
+      return res.status(500).json({ message: 'Error al obtener la venta' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Venta no encontrada' });
+    }
+
+    const estadoAnterior = results[0].estado;
+
+    // Actualizar el estado en la tabla ventas
+    db.query('UPDATE ventas SET estado = ? WHERE id = ?', [nuevoEstado, ventaId], (updateErr) => {
+      if (updateErr) {
+        console.error('Error al actualizar el estado de la venta:', updateErr);
+        return res.status(500).json({ message: 'Error al actualizar el estado de la venta' });
+      }
+
+      // Insertar el cambio en el historial de ventas
+      db.query(
+        'INSERT INTO ventas_historial (venta_id, estado_anterior, estado_nuevo, cambio_por) VALUES (?, ?, ?, ?)',
+        [ventaId, estadoAnterior, nuevoEstado, cambioPor || 'Sistema'],
+        (historialErr) => {
+          if (historialErr) {
+            console.error('Error al registrar historial de ventas:', historialErr);
+            return res.status(500).json({ message: 'Error al registrar historial de ventas' });
+          }
+
+          res.json({ message: 'Estado de la venta actualizado correctamente', ventaId });
+        }
+      );
+    });
+  });
+});
+
+router.put('/ventas/:ventaId/envio', verifyToken, (req, res) => {
+  const { ventaId } = req.params;
+  const { nuevoEstado, cambioPor } = req.body; // 'pendiente', 'enviado', 'entregado'
+
+  db.query('SELECT estado_envio FROM ventas WHERE id = ?', [ventaId], (err, results) => {
+    if (err) {
+      console.error('Error al obtener el estado de envío:', err);
+      return res.status(500).json({ message: 'Error al obtener el estado de envío' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Venta no encontrada' });
+    }
+
+    const estadoAnterior = results[0].estado_envio;
+
+    db.query('UPDATE ventas SET estado_envio = ? WHERE id = ?', [nuevoEstado, ventaId], (updateErr) => {
+      if (updateErr) {
+        console.error('Error al actualizar el estado de envío:', updateErr);
+        return res.status(500).json({ message: 'Error al actualizar el estado de envío' });
+      }
+
+      db.query(
+        'INSERT INTO envios_historial (venta_id, estado_anterior, estado_nuevo, cambio_por) VALUES (?, ?, ?, ?)',
+        [ventaId, estadoAnterior, nuevoEstado, cambioPor || 'Sistema'],
+        (historialErr) => {
+          if (historialErr) {
+            console.error('Error al registrar historial de envío:', historialErr);
+            return res.status(500).json({ message: 'Error al registrar historial de envío' });
+          }
+
+          res.json({ message: 'Estado de envío actualizado correctamente', ventaId });
+        }
+      );
+    });
+  });
+});
+
+
+router.get('/ventas/historial/:usuario_id', verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+  db.query(
+    `SELECT v.id, v.fecha, v.total, v.estado, v.estado_envio, v.direccion_envio,
+            mp.nombre AS metodo_pago
+     FROM ventas v
+     JOIN metodos_pago mp ON v.metodo_pago_id = mp.id
+     WHERE v.usuario_id = ?
+     ORDER BY v.fecha DESC`,
+    [usuario_id],
+    (err, results) => {
+      if (err) {
+        console.error('Error al obtener historial de ventas:', err);
+        return res.status(500).json({ message: 'Error al obtener historial de ventas' });
+      }
+      res.json({ ventas: results });
+    }
+  );
+});
+
+
+
+router.get('/ventas/:ventaId/detalle', verifyToken, (req, res) => {
+  const { ventaId } = req.params;
+
+  // Obtener detalle de productos
+  db.query(
+    `SELECT d.producto_id, p.nombre, d.cantidad, d.precio_unitario
+     FROM detalle_ventas d
+     JOIN productos p ON d.producto_id = p.id
+     WHERE d.venta_id = ?`,
+    [ventaId],
+    (errDetalle, detalleResults) => {
+      if (errDetalle) {
+        console.error('Error al obtener detalle de la venta:', errDetalle);
+        return res.status(500).json({ message: 'Error al obtener detalle de la venta' });
+      }
+
+      // Obtener historial de cambios de estado
+      db.query(
+        `SELECT estado_anterior, estado_nuevo, cambio_por, fecha
+         FROM ventas_historial
+         WHERE venta_id = ?
+         ORDER BY fecha ASC`,
+        [ventaId],
+        (errHistorial, historialResults) => {
+          if (errHistorial) {
+            console.error('Error al obtener historial de la venta:', errHistorial);
+            return res.status(500).json({ message: 'Error al obtener historial de la venta' });
+          }
+          res.json({
+            detalle: detalleResults,
+            historial: historialResults
+          });
+        }
+      );
+    }
+  );
+});
+
+
+router.get('/ventas/historial-todos', verifyToken, (req, res) => {
+  if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'empleado') {
+    return res.status(403).json({ message: 'No autorizado' });
+  }
+
+  const consultaVentas = `
+    SELECT v.id, u.nombre AS cliente, v.total,v.metodo_pago_id, v.estado, v.estado_envio, v.direccion_envio, v.fecha,
+           mp.nombre AS metodo_pago
+    FROM ventas v
+    JOIN usuarios u ON v.usuario_id = u.id
+    JOIN metodos_pago mp ON v.metodo_pago_id = mp.id
+    ORDER BY v.fecha DESC`;
+
+  db.query(consultaVentas, (error, ventas) => {
+    if (error) {
+      console.error('Error al obtener historial de ventas:', error);
+      return res.status(500).json({ message: 'Error al obtener el historial de ventas' });
+    }
+
+    if (ventas.length === 0) {
+      return res.json({ ventas: [] });
+    }
+
+    // Obtener detalles de los productos de cada venta
+    const ventasIds = ventas.map(v => v.id);
+    const consultaDetalles = `
+      SELECT dv.venta_id, p.nombre AS producto, dv.cantidad, dv.precio_unitario
+      FROM detalle_ventas dv
+      JOIN productos p ON dv.producto_id = p.id
+      WHERE dv.venta_id IN (?)`;
+
+    db.query(consultaDetalles, [ventasIds], (errorDetalles, detalles) => {
+      if (errorDetalles) {
+        console.error('Error al obtener detalles de ventas:', errorDetalles);
+        return res.status(500).json({ message: 'Error al obtener detalles de ventas' });
+      }
+
+      // Agregar los detalles a cada venta
+      const ventasConDetalles = ventas.map(venta => ({
+        ...venta,
+        productos: detalles
+          .filter(d => d.venta_id === venta.id)
+          .map(d => ({
+            nombre: d.producto,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario
+          }))
+      }));
+
+      res.json({ ventas: ventasConDetalles });
+    });
+  });
+});
+
+
 
   
-  
-
 // Ruta para obtener el perfil del usuario
 router.get('/perfil', verifyToken, async (req, res) => {
   try {
     // Usamos el id del usuario del token para buscar en la base de datos
-    const usuario = await UsuarioSchema.findById(req.userId);
+    const { id } = req.usuario; // Extraemos el id correctamente
+    const query = 'SELECT id, nombre, correo, telefono, rol, verificado, creado_en FROM usuarios WHERE id = ?';
 
-    if (!usuario) {
-      return res.status(404).json({ message: 'Usuario no encontrado.' });
-    }
+    db.query(query, [id], (error, results) => {
+      if (error) {
+        console.error("Error al obtener el perfil del usuario:", error);
+        return res.status(500).json({ message: 'Error interno al obtener el perfil' });
+      }
 
-    // Excluir la contraseña y otros datos sensibles
-    const { contrasena, ...perfil } = usuario.toObject();
-    res.json(perfil); // Devolver los datos del perfil
+      if (results.length === 0) {
+        return res.status(404).json({ message: 'Usuario no encontrado.' });
+      }
+
+      const perfil = results[0]; // Devolver solo los datos del perfil sin la contraseña ni información sensible
+      res.json(perfil);
+    });
   } catch (error) {
+    console.error("Error al obtener el perfil:", error);
     res.status(500).json({ message: 'Error al obtener el perfil del usuario' });
   }
 });
 
+
 // Crear usuario
 router.post("/usuarios", async (req, res) => {
-    try {
-        const { nombre, correo, contrasena, telefono } = req.body;
+  try {
+      const { nombre, correo, contrasena, telefono } = req.body;
 
-        // Verificar si el correo ya está registrado
-        const usuarioExistente = await UsuarioSchema.findOne({ correo });
-        if (usuarioExistente) {
-            return res.status(400).json({ message: "El correo ya está registrado" });
-        }
+      // Verificar si el correo ya está registrado
+      db.query('SELECT * FROM usuarios WHERE correo = ?', [correo], async (error, results) => {
+          if (error) {
+              console.error('Error al verificar usuario existente:', error);
+              return res.status(500).json({ message: "Error interno del servidor" });
+          }
 
-        // Hashear la contraseña
-        const hashedPassword = await bcryptjs.hash(contrasena, 10);
+          if (results.length > 0) {
+              return res.status(400).json({ message: "El correo ya está registrado" });
+          }
 
-        // Generar un código de verificación
-        const verificationCode = crypto.randomInt(100000, 999999).toString(); // Código de 6 dígitos
+          // Hashear la contraseña
+          const hashedPassword = await bcryptjs.hash(contrasena, 10);
 
-        // Hashear el código de verificación
-        const hashedVerificationCode = await bcryptjs.hash(verificationCode, 10);
+          // Generar un código de verificación
+          const codigo_verificacion = crypto.randomInt(100000, 999999).toString(); // Código de 6 dígitos
+          
+          const hashedCodigo_verificacion = await bcryptjs.hash(codigo_verificacion, 10);
 
-        // Crear el nuevo usuario sin verificar
-        const usuario = new UsuarioSchema({
-            nombre,
-            correo,
-            contrasena: hashedPassword,
-            telefono,
-            tipoUsuario: 'Cliente',
-            verificationCode: hashedVerificationCode,  // Guardar el código de verificación
-            isVerified: false
-        });
+          // Guardar el usuario en MySQL
+          db.query('INSERT INTO usuarios SET ?', {
+              nombre,
+              correo,
+              contrasena: hashedPassword,
+              telefono,
+              rol: 'Cliente',
+              verificado: false,
+              codigo_verificacion: hashedCodigo_verificacion,
+              intentos_fallidos: 0,
+              bloqueado: false,
+              creado_en: new Date()
+          }, (error, results) => {
+              if (error) {
+                  console.error('Error al crear usuario en MySQL:', error);
+                  return res.status(500).json({ message: "Error interno del servidor" });
+              }
+              });
 
-        // Guardar el usuario
-        await usuario.save();
+              const mailOptions = {
+                  from: '"LibreriaCR" <' + process.env.EMAIL_USER + '>',
+                  to: correo,
+                  subject: 'Verificación de tu cuenta',
+                  html: `
+                      <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f4f4f9; border-radius: 8px; max-width: 600px; margin: auto;">
+                          <h2 style="color: #4a90e2; text-align: center;">Verificación de tu cuenta</h2>
+                          <p style="font-size: 16px; line-height: 1.6;">
+                              ¡Hola!<br><br>
+                              Gracias por registrarte en nuestra plataforma. Para completar tu registro, por favor verifica tu dirección de correo electrónico.
+                          </p>
+                          <div style="text-align: center; margin: 20px 0;">
+                              <p style="font-size: 18px; font-weight: bold;">Tu código de verificación es:</p>
+                              <p style="font-size: 24px; font-weight: bold; color: #4a90e2; background-color: #e6f0fb; padding: 10px 20px; border-radius: 8px; display: inline-block;">
+                                  ${codigo_verificacion}
+                              </p>
+                          </div>
+                          <p style="font-size: 16px; line-height: 1.6;">
+                              Este código es válido solo durante los próximos 10 minutos. Ingresa este código en la plataforma para activar tu cuenta.
+                          </p>
+                          <p style="font-size: 16px; line-height: 1.6; color: #999;">
+                              Si no solicitaste esta verificación, ignora este mensaje.
+                          </p>
+                          <p style="font-size: 16px; line-height: 1.6;">
+                              ¡Gracias!<br>
+                              <strong>El equipo de soporte de LibreriaCR</strong>
+                          </p>
+                      </div>
+                  `
+              };
 
-        // Enviar correo con el código de verificación
-  
+              transporter.sendMail(mailOptions, (error, info) => {
+                  if (error) {
+                      console.error("Error al enviar el correo:", error);
+                      return res.status(500).json({ message: "Error al enviar el correo de verificación", error: error.message });
+                  }
+                  console.log("Correo enviado:", info.response);
+                  res.status(201).json({ message: "Usuario creado. Por favor verifica tu correo electrónico." });
+              });
+          });
 
-        const mailOptions = {
-          from: '"LibreriaCR" <' + process.env.EMAIL_USER + '>',
-          to: correo,
-          subject: 'Verificación de tu cuenta',
-          html: `
-              <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f4f4f9; border-radius: 8px; max-width: 600px; margin: auto;">
-                  <h2 style="color: #4a90e2; text-align: center;">Verificación de tu cuenta</h2>
-                  <p style="font-size: 16px; line-height: 1.6;">
-                      ¡Hola!<br><br>
-                      Gracias por registrarte en nuestra plataforma. Para completar tu registro, por favor verifica tu dirección de correo electrónico.
-                  </p>
-                  <div style="text-align: center; margin: 20px 0;">
-                      <p style="font-size: 18px; font-weight: bold;">Tu código de verificación es:</p>
-                      <p style="font-size: 24px; font-weight: bold; color: #4a90e2; background-color: #e6f0fb; padding: 10px 20px; border-radius: 8px; display: inline-block;">
-                          ${verificationCode}
-                      </p>
-                  </div>
-                  <p style="font-size: 16px; line-height: 1.6;">
-                      Este código es válido solo durante los próximos 10 minutos. Ingresa este código en la plataforma para activar tu cuenta.
-                  </p>
-                  <p style="font-size: 16px; line-height: 1.6; color: #999;">
-                      Si no solicitaste esta verificación, ignora este mensaje.
-                  </p>
-                  <p style="font-size: 16px; line-height: 1.6;">
-                      ¡Gracias!<br>
-                      <strong>El equipo de soporte de LibreriaCR</strong>
-                  </p>
-              </div>
-          `
-      };
-      
-      
-
-        // Envía el correo
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error("Error al enviar el correo:", error);
-                return res.status(500).json({ message: "Error al enviar el correo de verificación", error: error.message });
-            }
-            console.log("Correo enviado:", info.response);
-            res.status(201).json({ message: "Usuario creado. Por favor verifica tu correo electrónico." });
-        });
-
-    } catch (error) {
-        console.error("Error al registrar usuario:", error);
-        res.status(500).json({ message: "Error interno del servidor" });
-    }
+  } catch (error) {
+      console.error("Error al registrar usuario:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+  }
 });
 
 // Endpoint para verificar el código de verificación
 router.post("/usuarios/verico", async (req, res) => {
-    const { correo, codigoVerificacion } = req.body;
+  const { correo, codigoVerificacion } = req.body;
 
-    try {
-        // Buscar al usuario por correo
-        const usuario = await UsuarioSchema.findOne({ correo });
+  try {
+      // Buscar usuario por correo
+      db.query('SELECT * FROM usuarios WHERE correo = ?', [correo], async (error, results) => {
+          if (error) {
+              console.error('Error al buscar usuario:', error);
+              return res.status(500).json({ message: "Error interno del servidor" });
+          }
 
-        if (!usuario) {
-            return res.status(404).json({ message: "Usuario no encontrado" });
-        }
+          if (results.length === 0) {
+              return res.status(404).json({ message: "Usuario no encontrado" });
+          }
 
-        // Verificar si ya está verificado
-        if (usuario.isVerified) {
-            return res.status(400).json({ message: "El usuario ya está verificado" });
-        }
+          const usuario = results[0];
 
-        // Comparar el código ingresado con el código hasheado almacenado
-        const isCodeValid = await bcryptjs.compare(codigoVerificacion, usuario.verificationCode);
+          // Verificar si ya está verificado
+          if (usuario.verificado) {
+              return res.status(400).json({ message: "El usuario ya está verificado" });
+          }
 
-        if (isCodeValid) {
-            // Marcar al usuario como verificado
-            usuario.isVerified = true;
-            await usuario.save();
+          // 🔹 Comparar código ingresado con código hasheado
+          const isCodeValid = await bcryptjs.compare(codigoVerificacion, usuario.codigo_verificacion);
 
-            return res.status(200).json({ message: "Correo verificado con éxito" });
-        } else {
-            return res.status(400).json({ message: "Código de verificación incorrecto" });
-        }
+          if (isCodeValid) {
+              // Marcar al usuario como verificado en MySQL
+              db.query('UPDATE usuarios SET verificado = TRUE, codigo_verificacion = NULL WHERE correo = ?', [correo], (error, updateResults) => {
+                  if (error) {
+                      console.error('Error al actualizar usuario:', error);
+                      return res.status(500).json({ message: "Error interno del servidor" });
+                  }
 
-    } catch (error) {
-        console.error("Error al verificar el código:", error);
-        res.status(500).json({ message: "Error interno del servidor" });
-    }
+                  return res.status(200).json({ message: "Correo verificado con éxito" });
+              });
+          } else {
+              return res.status(400).json({ message: "Código de verificación incorrecto" });
+          }
+      });
+
+  } catch (error) {
+      console.error("Error al verificar el código:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+  }
 });
+
+
 
 
 // Ruta para actualizar el perfil del usuario

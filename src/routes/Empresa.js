@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinaryConfig'); // Importa la configuración de Cloudinary
 const Empresa = require('../models/Empresa');
+const db = require('../config/db'); // Importar la conexión a MySQL
 
 const router = express.Router();
 
@@ -100,19 +101,23 @@ router.put('/perfil', upload.single('logo'), async (req, res) => {
 });
 
 // Obtener perfil de empresa
-router.get('/datos', async (req, res) => {
-    try {
-        const empresa = await Empresa.findOne();
-        if (!empresa) {
+router.get('/datos', (req, res) => {
+    // Realizamos la consulta a la base de datos para obtener el perfil de la empresa
+    db.query('SELECT * FROM perfil_empresa LIMIT 1', (err, results) => {
+        if (err) {
+            console.error('Error en la consulta:', err);
+            return res.status(500).json({ message: 'Error al obtener el perfil de la empresa', error: err.message });
+        }
+        
+        // Verificamos si existen resultados
+        if (results.length === 0) {
             return res.status(404).json({ message: 'Empresa no encontrada.' });
         }
-        res.json(empresa);
-    } catch (err) {
-        console.error(err); // Registra el error en la consola
-        res.status(500).json({ message: 'Error al obtener el perfil de la empresa', error: err.message });
-    }
-});
 
+        // Retornamos los resultados
+        res.json(results[0]); // Suponiendo que solo hay una empresa
+    });
+});
 // Registro de auditoría
 const registrarAuditoria = async (accion, admin) => {
     const empresa = await Empresa.findOne();

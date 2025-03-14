@@ -71,21 +71,9 @@ app.use('/api', nosotrosRoutes);
 app.use('/api', metodoPagoRouter);
 
 
+//Rutas
 app.get("/", (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Bienvenido a la API</title>
-        </head>
-        <body>
-            <h1>Bienvenido a la API de la Librería Diocesana Cristo Rey</h1>
-            <p>El servidor está funcionando correctamente.</p>
-        </body>
-        </html>
-    `);
+    res.send("Servidor funcionando");
 });
 
 // Ruta de prueba para verificar la conexión a MySQL

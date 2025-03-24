@@ -209,6 +209,4 @@ router.post('/logout', async (req, res) => {
         res.status(500).json({ message: 'Error al cerrar sesión' });
     }
 });
-
-
 module.exports = router;

@@ -4,9 +4,9 @@ const Terminosycondiciones = require('../models/Terminosycondiciones');
 
 // Crear un nuevo Documento Regulatorio (POST)
 router.post('/terminos', async (req, res) => {
-    const { titulo, contenido, fechaVigencia } = req.body;
+    const { titulo, contenido, fecha_vigencia } = req.body;
   
-    if (!titulo || !contenido || !fechaVigencia) {
+    if (!titulo || !contenido || !fecha_vigencia) {
       return res.status(400).json({ message: 'Todos los campos son requeridos.' });
     }
   
@@ -28,7 +28,7 @@ router.post('/terminos', async (req, res) => {
       const nuevoDocumento = new Terminosycondiciones({
         titulo,
         contenido,
-        fechaVigencia,
+        fecha_vigencia,
         version: nuevaVersion, // Asignar la nueva versión calculada
         vigente: true, // Marcar como vigente
         eliminado: false // Marcar como no eliminado
@@ -44,7 +44,7 @@ router.post('/terminos', async (req, res) => {
 // Modificar un Documento Regulatorio (POST para crear una nueva versión)
 router.post('/terminos/:id/version', async (req, res) => {
     const { id } = req.params;
-    const { contenido, fechaVigencia } = req.body;
+    const { contenido, fecha_vigencia } = req.body;
   
     try {
       // Buscar el documento original por ID
@@ -61,7 +61,7 @@ router.post('/terminos/:id/version', async (req, res) => {
       const nuevaVersion = new Terminosycondiciones({
         titulo: documentoOriginal.titulo,
         contenido,
-        fechaVigencia,
+        fecha_vigencia,
         version: (parseFloat(documentoOriginal.version) + 1).toFixed(1), // Incrementar la versión
         eliminado: false, // Marcar como no eliminado
         vigente: true // La nueva versión será vigente

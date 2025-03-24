@@ -458,7 +458,7 @@ router.get('/perfil', verifyToken, async (req, res) => {
   try {
     // Usamos el id del usuario del token para buscar en la base de datos
     const { id } = req.usuario; // Extraemos el id correctamente
-    const query = 'SELECT id, nombre, correo, telefono, rol, verificado, creado_en FROM usuarios WHERE id = ?';
+    const query = 'SELECT id, nombre, correo, telefono, rol, verificado, creado_en, mfa_activado FROM usuarios WHERE id = ?';
 
     db.query(query, [id], (error, results) => {
       if (error) {
@@ -622,29 +622,39 @@ router.post("/usuarios/verico", async (req, res) => {
 
 // Ruta para actualizar el perfil del usuario
 router.put('/edit', verifyToken, async (req, res) => {
-    try {
-      // Obtener el id del usuario desde el token
-      const usuarioId = req.userId;
-      const { nombre, correo, telefono } = req.body; // Datos enviados por el cliente
-  
-      // Actualizar los datos del usuario en la base de datos
-      const usuario = await UsuarioSchema.findByIdAndUpdate(
-        usuarioId,
-        { nombre, correo, telefono },
-        { new: true } // Devuelve el documento actualizado
-      );
-  
-      if (!usuario) {
-        return res.status(404).json({ message: 'Usuario no encontrado.' });
+  try {
+      const { id } = req.usuario; // Extraer el ID del usuario del token
+      const { nombre, correo, telefono } = req.body;
+
+      if (!id) {
+          return res.status(400).json({ message: 'ID de usuario no proporcionado' });
       }
-  
-      // Excluir la contraseña y otros datos sensibles
-      const { contrasena, ...perfil } = usuario.toObject();
-      res.json(perfil); // Devolver los datos actualizados
-    } catch (error) {
-      res.status(500).json({ message: 'Error al actualizar el perfil del usuario' });
-    }
-  });
+
+      // Actualizar el usuario en MySQL
+      db.query(
+          'UPDATE usuarios SET nombre = ?, correo = ?, telefono = ? WHERE id = ?',
+          [nombre, correo, telefono, id],
+          (error, results) => {
+              if (error) {
+                  console.error('Error al actualizar usuario:', error);
+                  return res.status(500).json({ message: 'Error al actualizar usuario' });
+              }
+
+              if (results.affectedRows === 0) {
+                  return res.status(404).json({ message: 'Usuario no encontrado' });
+              }
+
+              // Devolver los datos actualizados (sin la contraseña)
+              res.json({ id, nombre, correo, telefono });
+          }
+      );
+  } catch (error) {
+      console.error('Error en el servidor:', error);
+      res.status(500).json({ message: 'Error en el servidor' });
+  }
+});
+
+
 
 
   // Función para registrar la actividad
@@ -669,58 +679,81 @@ async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
 
 // Ruta para cambiar la contraseña
 router.put('/cambiar-contrasena', verifyToken, async (req, res) => {
-    try {
-      const userId = req.userId;  // Obtener el ID del usuario desde el token
-      const { currentPassword, newPassword } = req.body; // Recibir las contraseñas actuales y nuevas del cuerpo de la solicitud
-  
-      // Buscar al usuario por su ID
-      const user = await UsuarioSchema.findById(userId);
-      // Verificar si el usuario existe y si la contraseña actual es correcta
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-  
-      const isMatch = await bcryptjs.compare(currentPassword, user.contrasena);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Contraseña actual incorrecta' });
+  try {
+      const { id } = req.usuario; // Obtener el ID del usuario desde el token
+      const { currentPassword, newPassword } = req.body;
+
+      if (!id) {
+          return res.status(400).json({ message: 'ID de usuario no proporcionado' });
       }
 
-        // Verificar si la nueva contraseña ya fue usada antes
-    for (const contrasenaHash of user.contrasenasAnteriores || []) {
-      const coincide = await bcryptjs.compare(newPassword, contrasenaHash);
-      if (coincide) {
-        return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a una anterior.' });
-      }
-    }
-  
-      // Verificar que la nueva contraseña no sea igual a la actual
-      if (currentPassword === newPassword) {
-        return res.status(400).json({ message: 'La nueva contraseña no puede ser la misma que la actual' });
-      }
-  
-   // Hacer hash de la nueva contraseña y actualizar
-   const nuevaContrasenaHash = await bcryptjs.hash(newPassword, 10);
-   user.contrasena = nuevaContrasenaHash;
+      // Buscar la contraseña actual y el historial en la base de datos
+      db.query('SELECT contrasena, historial_contrasenas FROM usuarios WHERE id = ?', [id], async (error, results) => {
+          if (error) {
+              console.error('Error al buscar la contraseña del usuario:', error);
+              return res.status(500).json({ message: 'Error interno del servidor' });
+          }
 
-   // Guardar la contraseña en el historial
-   user.contrasenasAnteriores = user.contrasenasAnteriores || [];
-   user.contrasenasAnteriores.push(nuevaContrasenaHash);
+          if (results.length === 0) {
+              return res.status(404).json({ message: 'Usuario no encontrado' });
+          }
 
-   // Limitar el historial a las últimas 5 contraseñas
-   if (user.contrasenasAnteriores.length > 5) {
-     user.contrasenasAnteriores.shift(); // Eliminar la más antigua
-   }
-      await user.save();
+          const storedPassword = results[0].contrasena;
+          const historial = results[0].historial_contrasenas ? JSON.parse(results[0].historial_contrasenas) : [];
 
-      const ip = req.ip;
-      await registrarActividad(user._id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
-      // Responder con éxito
-      res.json({ message: 'Contraseña actualizada con éxito' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al cambiar la contraseña' });
-    }
-  });
+          // Verificar si la contraseña actual ingresada es correcta
+          const isMatch = await bcryptjs.compare(currentPassword, storedPassword);
+          if (!isMatch) {
+              return res.status(400).json({ message: 'Contraseña actual incorrecta' });
+          }
+
+          // Verificar que la nueva contraseña no sea igual a la actual ni a las anteriores
+          const isSamePassword = await bcryptjs.compare(newPassword, storedPassword);
+          if (isSamePassword) {
+              return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a la actual' });
+          }
+
+          for (const oldPassword of historial) {
+              const coincide = await bcryptjs.compare(newPassword, oldPassword);
+              if (coincide) {
+                  return res.status(400).json({ message: 'La nueva contraseña no puede ser igual a una anterior' });
+              }
+          }
+
+          // Encriptar la nueva contraseña
+          const nuevaContrasenaHash = await bcryptjs.hash(newPassword, 10);
+
+          // Guardar la nueva contraseña en el historial
+          historial.push(nuevaContrasenaHash);
+
+          // Limitar el historial a las últimas 5 contraseñas
+          if (historial.length > 5) {
+              historial.shift(); // Eliminar la más antigua
+          }
+
+          // Actualizar la contraseña y el historial en la base de datos
+          db.query(
+              'UPDATE usuarios SET contrasena = ?, historial_contrasenas = ? WHERE id = ?',
+              [nuevaContrasenaHash, JSON.stringify(historial), id],
+              async (updateError, updateResults) => {
+                  if (updateError) {
+                      console.error('Error al actualizar la contraseña:', updateError);
+                      return res.status(500).json({ message: 'Error al actualizar la contraseña' });
+                  }
+
+                  // Registrar la actividad del usuario
+                 // const ip = req.ip;
+                 // await registrarActividad(id, 'Cambio de contraseña', ip, 'Cambio de contraseña exitoso');
+
+                  //res.json({ message: 'Contraseña actualizada con éxito' });
+              }
+          );
+      });
+  } catch (error) {
+      console.error('Error en el servidor:', error);
+      res.status(500).json({ message: 'Error en el servidor' });
+  }
+});
 
 // Obtener
 router.get("/usuarios", async (req, res) => {

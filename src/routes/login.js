@@ -7,8 +7,82 @@ const LimiteIntentos = require('../models/LimiteIntentos')
 const Actividad = require('../models/actividad.model');
 const db = require('../config/db'); // Asegúrate de importar tu conexión MySQL
 const router = express.Router();
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
+
+router.post('/activar-mfa', async (req, res) => {
+    const { usuarioId } = req.body;
+
+    const secreto = speakeasy.generateSecret({ length: 20 });
+
+    // Guardar el secreto en la base de datos
+    db.query('UPDATE usuarios SET mfa_secreto = ?, mfa_activado = ? WHERE id = ?', 
+        [secreto.base32, true, usuarioId], 
+        (error) => {
+            if (error) return res.status(500).json({ message: 'Error al activar MFA' });
+
+            // Generar la URL de Google Authenticator
+            const otpAuthUrl = `otpauth://totp/TiendaOnline:${usuarioId}?secret=${secreto.base32}&issuer=TiendaOnline`;
+
+            // Convertir la URL en un QR para que el usuario la escanee
+            qrcode.toDataURL(otpAuthUrl, (err, qr) => {
+                if (err) return res.status(500).json({ message: 'Error al generar QR' });
+                res.json({ message: 'MFA activado', qr, secreto: secreto.base32 });
+            });
+        });
+});
+
+
+router.post('/desactivar-mfa', async (req, res) => {
+    const { usuarioId } = req.body;
+
+    // Desactivar MFA eliminando el secreto y actualizando el estado en la base de datos
+    db.query('UPDATE usuarios SET mfa_secreto = NULL, mfa_activado = ? WHERE id = ?', 
+        [false, usuarioId], 
+        (error) => {
+            if (error) return res.status(500).json({ message: 'Error al desactivar MFA' });
+
+            res.json({ message: 'MFA desactivado correctamente' });
+        });
+});
+
+router.post('/verificar-mfa', async (req, res) => {
+    const { usuarioId, tokenMFA } = req.body;
+
+    // Asegúrate de seleccionar también el 'rol' y 'correo' de la base de datos
+    db.query('SELECT mfa_secreto, rol, correo FROM usuarios WHERE id = ?', [usuarioId], (error, results) => {
+        if (error || results.length === 0) return res.status(500).json({ message: 'Error al obtener MFA' });
+
+        // Verificación del código MFA
+        const verificado = speakeasy.totp.verify({
+            secret: results[0].mfa_secreto,
+            encoding: 'base32',
+            token: tokenMFA,
+            window: 1  // Permite cierta flexibilidad en el código
+        });
+
+        if (!verificado) return res.status(400).json({ message: 'Código MFA incorrecto' });
+
+     // Generar token JWT después de validar MFA
+const token = jwt.sign(
+    { 
+        id: usuarioId, 
+        correo: results[0].correo, 
+        rol: results[0].rol 
+    },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+);
+
+// Establecer el token en la cookie
+res.cookie('authToken', token, { httpOnly: true, secure: true, maxAge: 3600000 }); // 1 hora
+        // Enviar el token y el rol como respuesta
+        res.json({ message: 'MFA verificado', token, rol: results[0].rol });
+    });
+});
+
 
 // Función para registrar actividad
 async function registrarActividad(usuarioId, tipo, ip, detalles = '') {
@@ -33,7 +107,7 @@ router.post('/login', async (req, res) => {
                 response: recaptcha
             }
         });
-    
+        console.log(response.data); // Añadir esto para ver la respuesta completa de Google
         const { success } = response.data;
         if (!response.data.success) {
             return res.status(400).json({ message: 'Verificación reCAPTCHA fallida' });
@@ -82,7 +156,12 @@ router.post('/login', async (req, res) => {
 
             // ✅ Reiniciar intentos fallidos si la contraseña es válida
             db.query('UPDATE usuarios SET intentos_fallidos = 0, bloqueado = 0, fecha_bloqueo = NULL WHERE correo = ?', [correo]);
-
+            
+            // ✅ Si el usuario tiene MFA activado, requerir código MFA antes de generar el token
+            if (usuario.mfa_activado) {
+                return res.json({ message: 'MFA requerido', usuarioId: usuario.id, requiereMFA: true });
+            }
+            
             // ✅ Generar token JWT
             const token = jwt.sign(
                 { id: usuario.id, correo: usuario.correo, rol: usuario.rol },

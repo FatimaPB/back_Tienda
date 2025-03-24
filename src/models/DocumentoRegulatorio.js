@@ -11,7 +11,7 @@ const DocumentoRegulatorioSchema = new mongoose.Schema({
       type: String,
       required: true
     },
-    fechaVigencia: {
+    fecha_vigencia: {
       type: Date,
       required: true
     },

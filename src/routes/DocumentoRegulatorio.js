@@ -1,137 +1,479 @@
 const express = require('express');
 const router = express.Router();
-const DocumentoRegulatorio = require('../models/DocumentoRegulatorio');
+const db = require('../config/db'); // Asegúrate de que esta sea tu configuración MySQL
 
-// Crear un nuevo Documento Regulatorio (POST)
-router.post('/documentos', async (req, res) => {
-    const { titulo, contenido, fechaVigencia } = req.body;
-  
-    if (!titulo || !contenido || !fechaVigencia) {
+
+// Crear un nuevo Documento Regulatorio (POST) con tipo de documento
+router.post('/politicas/:tipo', (req, res) => {
+  const { titulo, contenido, fecha_vigencia, tipo } = req.body;
+
+  if (!titulo || !contenido || !fecha_vigencia || !tipo) {
       return res.status(400).json({ message: 'Todos los campos son requeridos.' });
-    }
-  
-    try {
+  }
 
-      await DocumentoRegulatorio.updateMany({ vigente: true }, { vigente: false });
+  // Actualizar documentos previos a no vigentes solo si son del tipo "política"
+  if (tipo === 'politica') {
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE vigente = TRUE AND tipo = "politica"', (error) => {
+      if (error) {
+          console.error('Error al actualizar documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
 
-       // Buscar la versión más alta existente
-    const ultimoDocumento = await DocumentoRegulatorio.findOne().sort({ version: -1 });
+      // Obtener la última versión de los documentos del tipo especificado
+      db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+          if (error) {
+              console.error('Error al obtener última versión:', error);
+              return res.status(500).json({ message: 'Error interno del servidor' });
+          }
 
-    // Calcular la nueva versión
-    let nuevaVersion = "1.0"; // Valor por defecto para el primer documento
-    if (ultimoDocumento && ultimoDocumento.version) {
-      const versionMasAlta = Math.floor(parseFloat(ultimoDocumento.version)); // Obtener la parte entera de la versión más alta
-      nuevaVersion = (versionMasAlta + 1).toFixed(1); // Incrementar a la siguiente versión mayor
-    }
+          let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
 
-      // Crear un nuevo documento regulatorio
-      const nuevoDocumento = new DocumentoRegulatorio({
-        titulo,
-        contenido,
-        fechaVigencia,
-        version: nuevaVersion, // Asignar la nueva versión calculada
-        vigente: true, // Marcar como vigente
-        eliminado: false // Marcar como no eliminado
+          // Insertar el nuevo documento con tipo
+          db.query(
+              'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+              [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+              (error, result) => {
+                  if (error) {
+                      console.error('Error al insertar documento:', error);
+                      return res.status(500).json({ message: 'Error interno del servidor' });
+                  }
+                  res.status(201).json({
+                      id: result.insertId, 
+                      titulo, 
+                      contenido, 
+                      fecha_vigencia, 
+                      version: nuevaVersion, 
+                      vigente: true,
+                      tipo
+                  });
+              }
+          );
       });
-  
-      const documentoGuardado = await nuevoDocumento.save();
-      res.status(201).json(documentoGuardado);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-  
-// Modificar un Documento Regulatorio (POST para crear una nueva versión)
-router.post('/documentos/:id/version', async (req, res) => {
-    const { id } = req.params;
-    const { contenido, fechaVigencia } = req.body;
-  
-    try {
-      // Buscar el documento original por ID
-      const documentoOriginal = await DocumentoRegulatorio.findById(id);
-      if (!documentoOriginal) {
-        return res.status(404).json({ message: 'Documento no encontrado.' });
+    });
+  } else {
+    // Si no es tipo "política", solo se inserta el nuevo documento sin actualizar los previos
+    db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+      if (error) {
+          console.error('Error al obtener última versión:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
       }
-  
-      // Marcar el documento original como no vigente
-      documentoOriginal.vigente = false;
-      await documentoOriginal.save(); // Guarda los cambios en el documento original
-  
-      // Crear una nueva versión
-      const nuevaVersion = new DocumentoRegulatorio({
-        titulo: documentoOriginal.titulo,
-        contenido,
-        fechaVigencia,
-        version: (parseFloat(documentoOriginal.version) + 0.1).toFixed(1), // Incrementar la versión
-        eliminado: false, // Marcar como no eliminado
-        vigente: true // La nueva versión será vigente
+
+      let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
+
+      // Insertar el nuevo documento con tipo
+      db.query(
+          'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+          [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+          (error, result) => {
+              if (error) {
+                  console.error('Error al insertar documento:', error);
+                  return res.status(500).json({ message: 'Error interno del servidor' });
+              }
+              res.status(201).json({
+                  id: result.insertId, 
+                  titulo, 
+                  contenido, 
+                  fecha_vigencia, 
+                  version: nuevaVersion, 
+                  vigente: true,
+                  tipo
+              });
+          }
+      );
+    });
+  }
+});
+
+
+// Actualizar un documento creando una nueva versión con tipo de documento
+router.post('/politicas/:tipo/:id/version', (req, res) => {
+  const { id, tipo } = req.params;
+  const { contenido, fecha_vigencia } = req.body;
+  if (!contenido || !fecha_vigencia || !tipo) return res.status(400).json({ message: 'Todos los campos son requeridos.' });
+
+  db.query('SELECT * FROM documentosr WHERE id = ? AND eliminado = FALSE', [id], (error, rows) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (rows.length === 0) return res.status(404).json({ message: 'Documento no encontrado o eliminado.' });
+
+    const documentoOriginal = rows[0];
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE id = ?', [id], (error) => {
+      if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+      let nuevaVersion = (parseFloat(documentoOriginal.version) + 0.1).toFixed(1);
+
+      db.query(
+        'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+        [documentoOriginal.titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+        (error, result) => {
+          if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+          res.status(201).json({
+            id: result.insertId, 
+            titulo: documentoOriginal.titulo, 
+            contenido, 
+            fecha_vigencia, 
+            version: nuevaVersion, 
+            vigente: true,
+            tipo
+          });
+        }
+      );
+    });
+  });
+});
+
+
+// Eliminar (lógicamente) un documento
+router.delete('/politicas/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('UPDATE documentosr SET eliminado = TRUE, vigente = FALSE WHERE id = ? AND eliminado = FALSE', [id], (error, result) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Documento no encontrado o ya eliminado.' });
+    res.json({ message: 'Documento marcado como eliminado.' });
+  });
+});
+
+// Obtener documento vigente de tipo "política"
+router.get('/politicas/vigente', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE vigente = TRUE AND eliminado = FALSE AND tipo= "politica" ORDER BY creado_en DESC LIMIT 1', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener documento vigente:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      if (rows.length === 0) {
+          return res.status(404).json({ message: 'No hay documentos vigentes de tipo política.' });
+      }
+
+      res.json(rows[0]);
+  });
+});
+
+// Obtener historial de documentos de tipo "política"
+router.get('/politicas/historial', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE tipo = "politica" ORDER BY creado_en ASC', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener historial de documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      res.json(rows);
+  });
+});
+
+
+
+
+
+// Crear un nuevo Documento Regulatorio (POST) con tipo de documento
+router.post('/deslindes/:tipo', (req, res) => {
+  const { titulo, contenido, fecha_vigencia, tipo } = req.body;
+
+  if (!titulo || !contenido || !fecha_vigencia || !tipo) {
+      return res.status(400).json({ message: 'Todos los campos son requeridos.' });
+  }
+
+  // Actualizar documentos previos a no vigentes solo si son del tipo "política"
+  if (tipo === 'deslinde') {
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE vigente = TRUE AND tipo = "deslinde"', (error) => {
+      if (error) {
+          console.error('Error al actualizar documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      // Obtener la última versión de los documentos del tipo especificado
+      db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+          if (error) {
+              console.error('Error al obtener última versión:', error);
+              return res.status(500).json({ message: 'Error interno del servidor' });
+          }
+
+          let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
+
+          // Insertar el nuevo documento con tipo
+          db.query(
+              'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+              [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+              (error, result) => {
+                  if (error) {
+                      console.error('Error al insertar documento:', error);
+                      return res.status(500).json({ message: 'Error interno del servidor' });
+                  }
+                  res.status(201).json({
+                      id: result.insertId, 
+                      titulo, 
+                      contenido, 
+                      fecha_vigencia, 
+                      version: nuevaVersion, 
+                      vigente: true,
+                      tipo
+                  });
+              }
+          );
       });
-  
-      const documentoGuardado = await nuevaVersion.save();
-      res.status(201).json(documentoGuardado);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-  
-  
-  
-
-// Marcar un Documento Regulatorio como eliminado (DELETE lógico)
-router.delete('/documentos/:id', async (req, res) => {
-    const { id } = req.params;
-  
-    try {
-      const documento = await DocumentoRegulatorio.findById(id);
-      if (!documento) {
-        return res.status(404).json({ message: 'Documento no encontrado.' });
+    });
+  } else {
+    // Si no es tipo "política", solo se inserta el nuevo documento sin actualizar los previos
+    db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+      if (error) {
+          console.error('Error al obtener última versión:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
       }
-  
-      documento.eliminado = true;
-      documento.vigente = false;  // No puede estar vigente si está eliminado
-  
-      const documentoEliminado = await documento.save();
-      res.json({ message: 'Documento marcado como eliminado.', documentoEliminado });
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
 
-// Consulta de documento vigente
-router.get('/documentos/vigente', async (req, res) => {
-    try {
-      const documentoVigente = await DocumentoRegulatorio.findOne({ vigente: true, eliminado: false })
-        .sort({ fechaCreacion: -1 });
-  
-      if (!documentoVigente) {
-        return res.status(404).json({ message: 'No hay documentos vigentes.' });
+      let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
+
+      // Insertar el nuevo documento con tipo
+      db.query(
+          'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+          [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+          (error, result) => {
+              if (error) {
+                  console.error('Error al insertar documento:', error);
+                  return res.status(500).json({ message: 'Error interno del servidor' });
+              }
+              res.status(201).json({
+                  id: result.insertId, 
+                  titulo, 
+                  contenido, 
+                  fecha_vigencia, 
+                  version: nuevaVersion, 
+                  vigente: true,
+                  tipo
+              });
+          }
+      );
+    });
+  }
+});
+
+
+// Actualizar un documento creando una nueva versión con tipo de documento
+router.post('/deslindes/:tipo/:id/version', (req, res) => {
+  const { id, tipo } = req.params;
+  const { contenido, fecha_vigencia } = req.body;
+  if (!contenido || !fecha_vigencia || !tipo) return res.status(400).json({ message: 'Todos los campos son requeridos.' });
+
+  db.query('SELECT * FROM documentosr WHERE id = ? AND eliminado = FALSE', [id], (error, rows) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (rows.length === 0) return res.status(404).json({ message: 'Documento no encontrado o eliminado.' });
+
+    const documentoOriginal = rows[0];
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE id = ?', [id], (error) => {
+      if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+      let nuevaVersion = (parseFloat(documentoOriginal.version) + 0.1).toFixed(1);
+
+      db.query(
+        'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+        [documentoOriginal.titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+        (error, result) => {
+          if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+          res.status(201).json({
+            id: result.insertId, 
+            titulo: documentoOriginal.titulo, 
+            contenido, 
+            fecha_vigencia, 
+            version: nuevaVersion, 
+            vigente: true,
+            tipo
+          });
+        }
+      );
+    });
+  });
+});
+
+
+// Eliminar (lógicamente) un documento
+router.delete('/deslindes/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('UPDATE documentosr SET eliminado = TRUE, vigente = FALSE WHERE id = ? AND eliminado = FALSE', [id], (error, result) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Documento no encontrado o ya eliminado.' });
+    res.json({ message: 'Documento marcado como eliminado.' });
+  });
+});
+
+// Obtener documento vigente de tipo "deslinde"
+router.get('/deslindes/vigente', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE vigente = TRUE AND eliminado = FALSE AND tipo= "deslinde" ORDER BY creado_en DESC LIMIT 1', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener documento vigente:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
       }
-  
-      res.json(documentoVigente);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-  
 
-
-// Consulta historial de versiones
-router.get('/documentos/historial', async (req, res) => {
-    try {
-      // Buscar todos los documentos, sin importar si están eliminados
-      const historial = await DocumentoRegulatorio.find()
-        .sort({ fechaCreacion: 1 });  // Orden por fecha de creación ascendente
-  
-      if (!historial || historial.length === 0) {
-        return res.status(404).json({ message: 'No se encontraron versiones.' });
+      if (rows.length === 0) {
+          return res.status(404).json({ message: 'No hay documentos vigentes de tipo política.' });
       }
-  
-      res.json(historial);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
+
+      res.json(rows[0]);
   });
-  
-    
+});
+
+// Obtener historial de documentos de tipo "deslinde"
+router.get('/deslindes/historial', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE tipo = "deslinde" ORDER BY creado_en ASC', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener historial de documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      res.json(rows);
+  });
+});
+
+
+// Crear un nuevo Documento Regulatorio (POST) con tipo de documento
+router.post('/terminos/:tipo', (req, res) => {
+  const { titulo, contenido, fecha_vigencia, tipo } = req.body;
+
+  if (!titulo || !contenido || !fecha_vigencia || !tipo) {
+      return res.status(400).json({ message: 'Todos los campos son requeridos.' });
+  }
+
+  // Actualizar documentos previos a no vigentes solo si son del tipo "política"
+  if (tipo === 'termino') {
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE vigente = TRUE AND tipo = "termino"', (error) => {
+      if (error) {
+          console.error('Error al actualizar documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      // Obtener la última versión de los documentos del tipo especificado
+      db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+          if (error) {
+              console.error('Error al obtener última versión:', error);
+              return res.status(500).json({ message: 'Error interno del servidor' });
+          }
+
+          let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
+
+          // Insertar el nuevo documento con tipo
+          db.query(
+              'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+              [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+              (error, result) => {
+                  if (error) {
+                      console.error('Error al insertar documento:', error);
+                      return res.status(500).json({ message: 'Error interno del servidor' });
+                  }
+                  res.status(201).json({
+                      id: result.insertId, 
+                      titulo, 
+                      contenido, 
+                      fecha_vigencia, 
+                      version: nuevaVersion, 
+                      vigente: true,
+                      tipo
+                  });
+              }
+          );
+      });
+    });
+  } else {
+    // Si no es tipo "política", solo se inserta el nuevo documento sin actualizar los previos
+    db.query('SELECT MAX(CAST(version AS DECIMAL(10,1))) AS ultimaVersion FROM documentosr WHERE tipo = ?', [tipo], (error, rows) => {
+      if (error) {
+          console.error('Error al obtener última versión:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      let nuevaVersion = rows[0].ultimaVersion ? (parseFloat(rows[0].ultimaVersion) + 1).toFixed(1) : "1.0";
+
+      // Insertar el nuevo documento con tipo
+      db.query(
+          'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+          [titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+          (error, result) => {
+              if (error) {
+                  console.error('Error al insertar documento:', error);
+                  return res.status(500).json({ message: 'Error interno del servidor' });
+              }
+              res.status(201).json({
+                  id: result.insertId, 
+                  titulo, 
+                  contenido, 
+                  fecha_vigencia, 
+                  version: nuevaVersion, 
+                  vigente: true,
+                  tipo
+              });
+          }
+      );
+    });
+  }
+});
+
+
+// Actualizar un documento creando una nueva versión con tipo de documento
+router.post('/terminos/:tipo/:id/version', (req, res) => {
+  const { id, tipo } = req.params;
+  const { contenido, fecha_vigencia } = req.body;
+  if (!contenido || !fecha_vigencia || !tipo) return res.status(400).json({ message: 'Todos los campos son requeridos.' });
+
+  db.query('SELECT * FROM documentosr WHERE id = ? AND eliminado = FALSE', [id], (error, rows) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (rows.length === 0) return res.status(404).json({ message: 'Documento no encontrado o eliminado.' });
+
+    const documentoOriginal = rows[0];
+    db.query('UPDATE documentosr SET vigente = FALSE WHERE id = ?', [id], (error) => {
+      if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+      let nuevaVersion = (parseFloat(documentoOriginal.version) + 0.1).toFixed(1);
+
+      db.query(
+        'INSERT INTO documentosr (titulo, contenido, fecha_vigencia, version, vigente, eliminado, tipo) VALUES (?, ?, ?, ?, TRUE, FALSE, ?)',
+        [documentoOriginal.titulo, contenido, fecha_vigencia, nuevaVersion, tipo],
+        (error, result) => {
+          if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+          res.status(201).json({
+            id: result.insertId, 
+            titulo: documentoOriginal.titulo, 
+            contenido, 
+            fecha_vigencia, 
+            version: nuevaVersion, 
+            vigente: true,
+            tipo
+          });
+        }
+      );
+    });
+  });
+});
+
+
+// Eliminar (lógicamente) un documento
+router.delete('/terminos/:id', (req, res) => {
+  const { id } = req.params;
+  db.query('UPDATE documentosr SET eliminado = TRUE, vigente = FALSE WHERE id = ? AND eliminado = FALSE', [id], (error, result) => {
+    if (error) return res.status(500).json({ message: 'Error interno del servidor' });
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Documento no encontrado o ya eliminado.' });
+    res.json({ message: 'Documento marcado como eliminado.' });
+  });
+});
+
+// Obtener documento vigente de tipo "deslinde"
+router.get('/terminos/vigente', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE vigente = TRUE AND eliminado = FALSE AND tipo= "termino" ORDER BY creado_en DESC LIMIT 1', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener documento vigente:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      if (rows.length === 0) {
+          return res.status(404).json({ message: 'No hay documentos vigentes de tipo política.' });
+      }
+
+      res.json(rows[0]);
+  });
+});
+
+// Obtener historial de documentos de tipo "deslinde"
+router.get('/terminos/historial', (req, res) => {
+  db.query('SELECT * FROM documentosr WHERE tipo = "termino" ORDER BY creado_en ASC', (error, rows) => {
+      if (error) {
+          console.error('Error al obtener historial de documentos:', error);
+          return res.status(500).json({ message: 'Error interno del servidor' });
+      }
+
+      res.json(rows);
+  });
+});
 
 module.exports = router;

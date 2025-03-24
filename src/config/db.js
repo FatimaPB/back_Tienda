@@ -1,8 +1,7 @@
 const mysql = require('mysql2');
 
+/*
 require('dotenv').config();
-
-
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
@@ -13,6 +12,19 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+*/
+
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: '', // Sin contraseña
+  database: 'dblibreria',
+  port: 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
 
 // Prueba de conexión
 pool.getConnection((err, connection) => {

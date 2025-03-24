@@ -4,9 +4,9 @@ const Deslinde = require('../models/Deslinde');
 
 // Crear un nuevo Documento Regulatorio (POST)
 router.post('/deslinde', async (req, res) => {
-    const { titulo, contenido, fechaVigencia } = req.body;
+    const { titulo, contenido, fecha_vigencia } = req.body;
   
-    if (!titulo || !contenido || !fechaVigencia) {
+    if (!titulo || !contenido || !fecha_vigencia) {
       return res.status(400).json({ message: 'Todos los campos son requeridos.' });
     }
   
@@ -27,7 +27,7 @@ router.post('/deslinde', async (req, res) => {
       const nuevoDocumento = new Deslinde({
         titulo,
         contenido,
-        fechaVigencia,
+        fecha_vigencia,
         version: nuevaVersion, // Asignar la nueva versión calculada
         vigente: true, // Marcar como vigente
         eliminado: false // Marcar como no eliminado
@@ -43,7 +43,7 @@ router.post('/deslinde', async (req, res) => {
 // Modificar un Documento Regulatorio (POST para crear una nueva versión)
 router.post('/deslinde/:id/version', async (req, res) => {
     const { id } = req.params;
-    const { contenido, fechaVigencia } = req.body;
+    const { contenido, fecha_vigencia } = req.body;
   
     try {
       // Buscar el documento original por ID
@@ -60,7 +60,7 @@ router.post('/deslinde/:id/version', async (req, res) => {
       const nuevaVersion = new Deslinde({
         titulo: documentoOriginal.titulo,
         contenido,
-        fechaVigencia,
+        fecha_vigencia,
         version: (parseFloat(documentoOriginal.version) + 1).toFixed(1), // Incrementar la versión
         eliminado: false, // Marcar como no eliminado
         vigente: true // La nueva versión será vigente

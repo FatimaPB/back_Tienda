@@ -53,7 +53,9 @@ router.post('/verificar-mfa', async (req, res) => {
 
     // Asegúrate de seleccionar también el 'rol' y 'correo' de la base de datos
     db.query('SELECT mfa_secreto, rol, correo FROM usuarios WHERE id = ?', [usuarioId], (error, results) => {
-        if (error || results.length === 0) return res.status(500).json({ message: 'Error al obtener MFA' });
+        if (error || results.length === 0) {
+            return res.status(500).json({ message: 'Error al obtener MFA' });
+        }
 
         // Verificación del código MFA
         const verificado = speakeasy.totp.verify({
@@ -63,25 +65,34 @@ router.post('/verificar-mfa', async (req, res) => {
             window: 1  // Permite cierta flexibilidad en el código
         });
 
-        if (!verificado) return res.status(400).json({ message: 'Código MFA incorrecto' });
+        if (!verificado) {
+            return res.status(400).json({ message: 'Código MFA incorrecto' });
+        }
 
-     // Generar token JWT después de validar MFA
-const token = jwt.sign(
-    { 
-        id: usuarioId, 
-        correo: results[0].correo, 
-        rol: results[0].rol 
-    },
-    JWT_SECRET,
-    { expiresIn: '1h' }
-);
+        // Generar token JWT después de validar MFA
+        const token = jwt.sign(
+            { 
+                id: usuarioId, 
+                correo: results[0].correo, 
+                rol: results[0].rol 
+            },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
 
-// Establecer el token en la cookie
-res.cookie('authToken', token, { httpOnly: true, secure: true, maxAge: 3600000 }); // 1 hora
-        // Enviar el token y el rol como respuesta
-        res.json({ message: 'MFA verificado', token, rol: results[0].rol });
+        // Establecer el token en la cookie
+        res.cookie('authToken', token, { 
+            httpOnly: true, 
+            secure: true, 
+            sameSite: 'None',  // Si usas HTTPS en producción, sino usa 'Strict'
+            maxAge: 3600000  // 1 hora
+        });
+
+        // Enviar solo el mensaje y el rol (el token ya está en la cookie)
+        res.json({ message: 'MFA verificado', rol: results[0].rol });
     });
 });
+
 
 
 // Función para registrar actividad

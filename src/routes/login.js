@@ -47,11 +47,10 @@ router.post('/desactivar-mfa', async (req, res) => {
             res.json({ message: 'MFA desactivado correctamente' });
         });
 });
-
+// Ruta para verificar MFA
 router.post('/verificar-mfa', async (req, res) => {
     const { usuarioId, tokenMFA } = req.body;
 
-    // Asegúrate de seleccionar también el 'rol' y 'correo' de la base de datos
     db.query('SELECT mfa_secreto, rol, correo FROM usuarios WHERE id = ?', [usuarioId], (error, results) => {
         if (error || results.length === 0) {
             return res.status(500).json({ message: 'Error al obtener MFA' });
@@ -62,14 +61,14 @@ router.post('/verificar-mfa', async (req, res) => {
             secret: results[0].mfa_secreto,
             encoding: 'base32',
             token: tokenMFA,
-            window: 1  // Permite cierta flexibilidad en el código
+            window: 1
         });
 
         if (!verificado) {
             return res.status(400).json({ message: 'Código MFA incorrecto' });
         }
 
-        // Generar token JWT después de validar MFA
+        // Generar token JWT
         const token = jwt.sign(
             { 
                 id: usuarioId, 
@@ -84,12 +83,12 @@ router.post('/verificar-mfa', async (req, res) => {
         res.cookie('authToken', token, { 
             httpOnly: true, 
             secure: true, 
-            sameSite: 'None',  // Si usas HTTPS en producción, sino usa 'Strict'
-            maxAge: 3600000  // 1 hora
+            sameSite: 'None',  
+            maxAge: 3600000  
         });
 
-        // Enviar solo el mensaje y el rol (el token ya está en la cookie)
-        res.json({ message: 'MFA verificado', rol: results[0].rol });
+        // Enviar el token también en la respuesta JSON
+        res.json({ message: 'MFA verificado', token, rol: results[0].rol });
     });
 });
 

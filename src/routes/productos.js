@@ -89,6 +89,16 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       variantes // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
     } = req.body;
 
+        // Convertir variantes a objeto si es string
+        let variantesArray = [];
+        if (variantes) {
+          if (typeof variantes === "string") {
+            variantesArray = JSON.parse(variantes);
+          } else {
+            variantesArray = variantes;
+          }
+        }
+
     // Usar el ID del usuario extraído del token
     const usuario_id = req.id;
 
@@ -121,35 +131,32 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     });
 
     // Crear las variantes para el producto
-    if (variantes && variantes.length > 0) {
-      for (const variante of variantes) {
+    if (variantesArray && variantesArray.length > 0) {
+      for (const variante of variantesArray) {
         const { color_id, tamano_id, cantidad_stock } = variante;
-
-           // Verificar que los valores no sean null o undefined antes de insertar
-           if (color_id && tamano_id && cantidad_stock !== undefined) {
-
-        await new Promise((resolve, reject) => {
-          const query = `
-            INSERT INTO variantes (producto_id, color_id, tamano_id, cantidad_stock)
-            VALUES (?, ?, ?, ?)
-          `;
-          db.query(
-            query,
-            [productoId, color_id, tamano_id, cantidad_stock],
-            (err, result) => {
-              if (err) return reject(err);
-              resolve(result);
-            }
-          );
-        });
-      } else {
-        // Si falta algún dato, manejarlo, por ejemplo, retornando un error
-        return res.status(400).json({
-          message: "Faltan datos para alguna variante: color_id, tamano_id o cantidad_stock",
-        });
+        // Verificar que los valores no sean null o undefined
+        if (color_id != null && tamano_id != null && cantidad_stock != null) {
+          await new Promise((resolve, reject) => {
+            const query = `
+              INSERT INTO variantes (producto_id, color_id, tamano_id, cantidad_stock)
+              VALUES (?, ?, ?, ?)
+            `;
+            db.query(
+              query,
+              [productoId, color_id, tamano_id, cantidad_stock],
+              (err, result) => {
+                if (err) return reject(err);
+                resolve(result);
+              }
+            );
+          });
+        } else {
+          return res.status(400).json({
+            message: "Faltan datos para alguna variante: color_id, tamano_id o cantidad_stock"
+          });
+        }
       }
     }
-  }
 
     // Procesar imágenes si se enviaron archivos
     if (req.files && req.files.length > 0) {

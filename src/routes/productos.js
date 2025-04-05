@@ -103,7 +103,7 @@ router.put("/productos/:id", verifyToken, upload.array("images"), async (req, re
 
     // Endpoint para crear un producto con variantes e imágenes
 
-    
+
 router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
   try {
     // Extraer datos del producto del body
@@ -116,7 +116,6 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       precio_calculado,
       calificacion_promedio,
       total_resenas,
-      cantidad_stock,
       categoria_id,
       variantes // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
     } = req.body;

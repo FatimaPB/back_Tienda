@@ -337,16 +337,13 @@ router.delete("/productos/:id", verifyToken, async (req, res) => {
 // Endpoint para obtener todos los productos con imágenes y variantes
 router.get("/productos", verifyToken, async (req, res) => {
   try {
+    // Consulta principal sin unir con colores ni tamaños
     const query = `
       SELECT p.*, 
              c.nombre_categoria AS nombre_categoria,
-             co.nombre_color AS nombre_color,
-             t.nombre_tamano AS nombre_tamano, 
              u.nombre AS usuario_nombre
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
-      JOIN colores co ON p.color_id = co.id
-      JOIN tamaños t ON p.tamano_id = t.id
       JOIN usuarios u ON p.usuario_id = u.id
     `;
 
@@ -356,10 +353,10 @@ router.get("/productos", verifyToken, async (req, res) => {
         return res.status(500).json({ message: 'Error al obtener productos' });
       }
 
-      // Para cada producto, obtener las imágenes y variantes asociadas
+      // Para cada producto, obtener imágenes y variantes (con detalles de color y tamaño)
       const productosConDatos = await Promise.all(productos.map(async (producto) => {
         return new Promise((resolve, reject) => {
-          // Primero obtenemos las imágenes
+          // Obtener imágenes asociadas al producto
           const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
           db.query(queryImagenes, [producto.id], (err, imagenes) => {
             if (err) {
@@ -367,8 +364,15 @@ router.get("/productos", verifyToken, async (req, res) => {
               return reject(err);
             }
             producto.imagenes = imagenes.map(img => img.url);
-            // Luego, obtenemos las variantes
-            const queryVariantes = "SELECT * FROM variantes WHERE producto_id = ?";
+
+            // Obtener variantes con detalles de color y tamaño
+            const queryVariantes = `
+              SELECT v.*, co.nombre_color, t.nombre_tamano
+              FROM variantes v
+              JOIN colores co ON v.color_id = co.id
+              JOIN tamaños t ON v.tamano_id = t.id
+              WHERE v.producto_id = ?
+            `;
             db.query(queryVariantes, [producto.id], (err, variantes) => {
               if (err) {
                 console.error("Error al obtener variantes:", err);
@@ -388,6 +392,7 @@ router.get("/productos", verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Error al obtener productos' });
   }
 });
+
 
 
 

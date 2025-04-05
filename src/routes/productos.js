@@ -335,43 +335,51 @@ router.delete("/productos/:id", verifyToken, async (req, res) => {
 
 
 
-  // Endpoint para obtener todos los productos
-  router.get("/productos", verifyToken, async (req, res) => {
-    try {
-        const query = `SELECT p.*, c.nombre_categoria AS nombre_categoria,co.nombre_color AS nombre_color,t.nombre_tamano AS nombre_tamano, u.nombre AS usuario_nombre
-                       FROM productos p
-                       JOIN categorias c ON p.categoria_id = c.id
-                       JOIN colores co ON p.color_id = co.id
-                       JOIN tamaños t ON p.tamano_id = t.id
-                       JOIN usuarios u ON p.usuario_id = u.id`;
+// Endpoint para obtener todos los productos
+router.get("/productos", verifyToken, async (req, res) => {
+  try {
+    const query = `
+      SELECT p.*, 
+             c.nombre_categoria AS nombre_categoria,
+             co.nombre_color AS nombre_color,
+             t.nombre_tamano AS nombre_tamano, 
+             u.nombre AS usuario_nombre
+      FROM productos p
+      JOIN categorias c ON p.categoria_id = c.id
+      JOIN colores co ON p.color_id = co.id
+      -- Asegúrate de que el nombre de la tabla es correcto. Si es "tamanos" cambia "tamaños" por "tamanos"
+      JOIN tamaños t ON p.tamano_id = t.id
+      JOIN usuarios u ON p.usuario_id = u.id
+    `;
 
-        db.query(query, async (err, productos) => {
+    db.query(query, async (err, productos) => {
+      if (err) {
+        console.error('Error al obtener productos:', err);
+        return res.status(500).json({ message: 'Error al obtener productos' });
+      }
+
+      // Para cada producto, obtener las imágenes asociadas
+      const productosConImagenes = await Promise.all(productos.map(async (producto) => {
+        return new Promise((resolve, reject) => {
+          const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
+          db.query(queryImagenes, [producto.id], (err, imagenes) => {
             if (err) {
-                console.error('Error al obtener productos:', err);
-                return res.status(500).json({ message: 'Error al obtener productos' });
+              console.error("Error al obtener imágenes:", err);
+              return reject(err);
             }
-
-            // Para cada producto, obtener las imágenes
-            const productosConImagenes = await Promise.all(productos.map(async (producto) => {
-                return new Promise((resolve, reject) => {
-                    const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
-                    db.query(queryImagenes, [producto.id], (err, imagenes) => {
-                        if (err) {
-                            console.error("Error al obtener imágenes:", err);
-                            return reject(err);
-                        }
-                        producto.imagenes = imagenes.map(img => img.url); // Guardar solo las URLs
-                        resolve(producto);
-                    });
-                });
-            }));
-
-            res.json(productosConImagenes);
+            // Asigna solo las URLs al producto
+            producto.imagenes = imagenes.map(img => img.url);
+            resolve(producto);
+          });
         });
-    } catch (error) {
-        console.error("Error al obtener productos:", error);
-        res.status(500).json({ message: 'Error al obtener productos' });
-    }
+      }));
+
+      res.json(productosConImagenes);
+    });
+  } catch (error) {
+    console.error("Error al obtener productos:", error);
+    res.status(500).json({ message: 'Error al obtener productos' });
+  }
 });
 
 

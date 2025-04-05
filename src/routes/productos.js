@@ -346,7 +346,7 @@ router.get("/productos", verifyToken, async (req, res) => {
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
       JOIN colores co ON p.color_id = co.id
-      JOIN tamanos t ON p.tamano_id = t.id
+      JOIN tamaños t ON p.tamano_id = t.id
       JOIN usuarios u ON p.usuario_id = u.id
     `;
 

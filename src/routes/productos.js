@@ -72,38 +72,7 @@ function verifyToken(req, res, next) {
   }
 }
 // Endpoint para crear un producto con imágenes (ahora protegido por el middleware)
-
-
-// Endpoint para editar un producto
-router.put("/productos/:id", verifyToken, upload.array("images"), async (req, res) => {
-  try {
-    const { id } = req.params; // ID del producto a editar
-    const {
-      nombre,
-      descripcion,
-      sku,
-      costo,
-      porcentaje_ganancia,
-      precio_calculado,
-      cantidad_stock,
-      categoria_id,
-      color_id,
-      tamano_id,
-    } = req.body;
-
-    // Verificar si el producto existe
-    const producto = await new Promise((resolve, reject) => {
-      const query = "SELECT * FROM productos WHERE id = ?";
-      db.query(query, [id], (err, result) => {
-        if (err) return reject(err);
-        if (result.length === 0) return reject(new Error("Producto no encontrado"));
-        resolve(result[0]);
-      });
-    });
-
-    // Endpoint para crear un producto con variantes e imágenes
-
-
+// Endpoint para crear un producto con variantes e imágenes
 router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
   try {
     // Extraer datos del producto del body
@@ -204,6 +173,33 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
   }
 });
 
+
+// Endpoint para editar un producto
+router.put("/productos/:id", verifyToken, upload.array("images"), async (req, res) => {
+  try {
+    const { id } = req.params; // ID del producto a editar
+    const {
+      nombre,
+      descripcion,
+      sku,
+      costo,
+      porcentaje_ganancia,
+      precio_calculado,
+      cantidad_stock,
+      categoria_id,
+      color_id,
+      tamano_id,
+    } = req.body;
+
+    // Verificar si el producto existe
+    const producto = await new Promise((resolve, reject) => {
+      const query = "SELECT * FROM productos WHERE id = ?";
+      db.query(query, [id], (err, result) => {
+        if (err) return reject(err);
+        if (result.length === 0) return reject(new Error("Producto no encontrado"));
+        resolve(result[0]);
+      });
+    });
 
     // Actualizar producto
     await new Promise((resolve, reject) => {

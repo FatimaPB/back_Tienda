@@ -102,6 +102,8 @@ router.put("/productos/:id", verifyToken, upload.array("images"), async (req, re
     });
 
     // Endpoint para crear un producto con variantes e imágenes
+
+    
 router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
   try {
     // Extraer datos del producto del body

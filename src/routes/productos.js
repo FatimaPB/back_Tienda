@@ -125,6 +125,9 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       for (const variante of variantes) {
         const { color_id, tamano_id, cantidad_stock } = variante;
 
+           // Verificar que los valores no sean null o undefined antes de insertar
+           if (color_id && tamano_id && cantidad_stock !== undefined) {
+
         await new Promise((resolve, reject) => {
           const query = `
             INSERT INTO variantes (producto_id, color_id, tamano_id, cantidad_stock)
@@ -139,8 +142,14 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
             }
           );
         });
+      } else {
+        // Si falta algún dato, manejarlo, por ejemplo, retornando un error
+        return res.status(400).json({
+          message: "Faltan datos para alguna variante: color_id, tamano_id o cantidad_stock",
+        });
       }
     }
+  }
 
     // Procesar imágenes si se enviaron archivos
     if (req.files && req.files.length > 0) {

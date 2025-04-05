@@ -72,89 +72,7 @@ function verifyToken(req, res, next) {
   }
 }
 // Endpoint para crear un producto con imágenes (ahora protegido por el middleware)
-router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
-    try {
-      // Extraer datos del producto del body
-      const {
-        nombre,
-        descripcion,
-        sku,
-        costo,
-        porcentaje_ganancia,
-        precio_calculado,
-        calificacion_promedio,
-        total_resenas,
-        cantidad_stock,
-        categoria_id,
-        color_id,
-        tamano_id
-      } = req.body;
-  
-      // Usar el ID del usuario extraído del token
-      const usuario_id = req.id;
-  
-      // Insertar el producto en la tabla productos
-      const productoId = await new Promise((resolve, reject) => {
-        const query = `
-          INSERT INTO productos 
-            (nombre, descripcion, sku, costo, porcentaje_ganancia, precio_calculado, calificacion_promedio, total_resenas, cantidad_stock, categoria_id,color_id,
-        tamano_id,usuario_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)
-        `;
-        db.query(
-          query,
-          [
-            nombre,
-            descripcion,
-            sku,
-            costo,
-            porcentaje_ganancia,
-            precio_calculado,
-            calificacion_promedio,
-            total_resenas,
-            cantidad_stock,
-            categoria_id,
-            color_id,
-            tamano_id,
-            usuario_id,
-          ],
-          (err, result) => {
-            if (err) return reject(err);
-            resolve(result.insertId);
-          }
-        );
-      });
-  
-      // Procesar imágenes si se enviaron archivos
-      if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          const uploadResult = await new Promise((resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "productos" },
-              (error, result) => {
-                if (error) return reject(error);
-                resolve(result);
-              }
-            );
-            streamifier.createReadStream(file.buffer).pipe(stream);
-          });
-  
-          await new Promise((resolve, reject) => {
-            const query = "INSERT INTO imagenes (producto_id, url) VALUES (?, ?)";
-            db.query(query, [productoId, uploadResult.secure_url], (err, result) => {
-              if (err) return reject(err);
-              resolve(result);
-            });
-          });
-        }
-      }
-  
-      res.status(201).json({ message: "Producto y sus imágenes creados exitosamente", productoId });
-    } catch (error) {
-      console.error("Error al crear producto e imágenes:", error);
-      res.status(500).json({ message: "Error al crear producto" });
-    }
-  });
+
 
 // Endpoint para editar un producto
 router.put("/productos/:id", verifyToken, upload.array("images"), async (req, res) => {
@@ -182,6 +100,109 @@ router.put("/productos/:id", verifyToken, upload.array("images"), async (req, re
         resolve(result[0]);
       });
     });
+
+    // Endpoint para crear un producto con variantes e imágenes
+router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
+  try {
+    // Extraer datos del producto del body
+    const {
+      nombre,
+      descripcion,
+      sku,
+      costo,
+      porcentaje_ganancia,
+      precio_calculado,
+      calificacion_promedio,
+      total_resenas,
+      cantidad_stock,
+      categoria_id,
+      variantes // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
+    } = req.body;
+
+    // Usar el ID del usuario extraído del token
+    const usuario_id = req.id;
+
+    // Insertar el producto en la tabla productos
+    const productoId = await new Promise((resolve, reject) => {
+      const query = `
+        INSERT INTO productos 
+          (nombre, descripcion, sku, costo, porcentaje_ganancia, precio_calculado, calificacion_promedio, total_resenas, categoria_id, usuario_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      db.query(
+        query,
+        [
+          nombre,
+          descripcion,
+          sku,
+          costo,
+          porcentaje_ganancia,
+          precio_calculado,
+          calificacion_promedio,
+          total_resenas,
+          categoria_id,
+          usuario_id,
+        ],
+        (err, result) => {
+          if (err) return reject(err);
+          resolve(result.insertId);
+        }
+      );
+    });
+
+    // Crear las variantes para el producto
+    if (variantes && variantes.length > 0) {
+      for (const variante of variantes) {
+        const { color_id, tamano_id, cantidad_stock } = variante;
+
+        await new Promise((resolve, reject) => {
+          const query = `
+            INSERT INTO variantes (producto_id, color_id, tamano_id, cantidad_stock)
+            VALUES (?, ?, ?, ?)
+          `;
+          db.query(
+            query,
+            [productoId, color_id, tamano_id, cantidad_stock],
+            (err, result) => {
+              if (err) return reject(err);
+              resolve(result);
+            }
+          );
+        });
+      }
+    }
+
+    // Procesar imágenes si se enviaron archivos
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "productos" },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          streamifier.createReadStream(file.buffer).pipe(stream);
+        });
+
+        await new Promise((resolve, reject) => {
+          const query = "INSERT INTO imagenes (producto_id, url) VALUES (?, ?)";
+          db.query(query, [productoId, uploadResult.secure_url], (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          });
+        });
+      }
+    }
+
+    res.status(201).json({ message: "Producto, variantes e imágenes creados exitosamente", productoId });
+  } catch (error) {
+    console.error("Error al crear producto, variantes e imágenes:", error);
+    res.status(500).json({ message: "Error al crear producto" });
+  }
+});
+
 
     // Actualizar producto
     await new Promise((resolve, reject) => {

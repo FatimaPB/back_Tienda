@@ -334,10 +334,11 @@ router.delete("/productos/:id", verifyToken, async (req, res) => {
 });
 
 
-// Endpoint para obtener todos los productos con imágenes y variantes
+
+// Endpoint para obtener todos los productos con sus variantes e imágenes
 router.get("/productos", verifyToken, async (req, res) => {
   try {
-    // Consulta principal sin unir con colores ni tamaños
+    // Consulta para obtener todos los productos, su categoría y usuario
     const query = `
       SELECT p.*, 
              c.nombre_categoria AS nombre_categoria,
@@ -353,8 +354,8 @@ router.get("/productos", verifyToken, async (req, res) => {
         return res.status(500).json({ message: 'Error al obtener productos' });
       }
 
-      // Para cada producto, obtener imágenes y variantes (con detalles de color y tamaño)
-      const productosConDatos = await Promise.all(productos.map(async (producto) => {
+      // Para cada producto, obtener las imágenes y las variantes
+      const productosConDetalles = await Promise.all(productos.map(async (producto) => {
         return new Promise((resolve, reject) => {
           // Obtener imágenes asociadas al producto
           const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
@@ -365,7 +366,7 @@ router.get("/productos", verifyToken, async (req, res) => {
             }
             producto.imagenes = imagenes.map(img => img.url);
 
-            // Obtener variantes con detalles de color y tamaño
+            // Obtener variantes (color, tamaño, stock) para el producto
             const queryVariantes = `
               SELECT v.*, co.nombre_color, t.nombre_tamano
               FROM variantes v
@@ -378,22 +379,20 @@ router.get("/productos", verifyToken, async (req, res) => {
                 console.error("Error al obtener variantes:", err);
                 return reject(err);
               }
-              producto.variantes = variantes;
+              producto.variantes = variantes; // Agregar variantes al producto
               resolve(producto);
             });
           });
         });
       }));
 
-      res.json(productosConDatos);
+      res.json(productosConDetalles); // Devolver los productos con sus variantes e imágenes
     });
   } catch (error) {
     console.error("Error al obtener productos:", error);
     res.status(500).json({ message: 'Error al obtener productos' });
   }
 });
-
-
 
 
 router.get("/variantes", async (req, res) => {

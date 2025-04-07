@@ -395,43 +395,27 @@ router.get("/productos", verifyToken, async (req, res) => {
 });
 
 
-router.get("/variantes", async (req, res) => {
-  try {
-    const { nombre, color_id } = req.query;
+// Endpoint para obtener todas las variantes con el nombre del producto
+router.get('/variantes', (req, res) => {
+  const query = `
+    SELECT v.id, 
+           CONCAT(p.nombre, ' - ', co.nombre_color, ' - ', t.nombre_tamano) AS nombre, 
+           v.producto_id
+    FROM variantes v
+    JOIN productos p ON v.producto_id = p.id
+    JOIN colores co ON v.color_id = co.id
+    JOIN tamaños t ON v.tamano_id = t.id
+  `;
 
-    // Construcción dinámica de la consulta SQL
-    let query = `
-      SELECT DISTINCT p.color_id, c.nombre_color, p.tamano_id, t.nombre_tamano 
-      FROM productos p
-      JOIN colores c ON p.color_id = c.id
-      JOIN tamaños t ON p.tamano_id = t.id
-      WHERE p.nombre = ?`;
-
-    // Si se pasa color_id, agregar filtro adicional
-    const queryParams = [nombre];
-
-    if (color_id) {
-      query += ` AND p.color_id = ?`;
-      queryParams.push(color_id);
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error al obtener variantes:', err);
+      return res.status(500).json({ message: 'Error al obtener variantes' });
     }
-
-    db.query(query, queryParams, (err, results) => {
-      if (err) {
-        console.error("Error al obtener variantes del producto:", err);
-        return res.status(500).json({ message: "Error en el servidor" });
-      }
-
-      if (results.length === 0) {
-        return res.status(404).json({ message: "No se encontraron variantes para este producto" });
-      }
-
-      res.json(results);
-    });
-  } catch (error) {
-    console.error("Error en la consulta:", error);
-    res.status(500).json({ message: "Error en el servidor" });
-  }
+    res.json(results);
+  });
 });
+
 
 
 

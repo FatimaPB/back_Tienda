@@ -190,9 +190,10 @@ router.post('/comprar', verifyToken, (req, res) => {
           }
 
           const venta_id = result.insertId;
+          const variante_id = result.insertId;
 
        // Insertar productos en detalle_ventas
-       const valoresProductos = productos.map(p => [venta_id, p.nombre, p.cantidad, p.precio_calculado]);
+       const valoresProductos = productos.map(p => [venta_id,variante_id, p.cantidad, p.precio_calculado]);
 
        connection.query(
          `INSERT INTO detalle_ventas (venta_id, variante_id, cantidad, precio_unitario) VALUES ?`,

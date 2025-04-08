@@ -86,24 +86,25 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       cantidad_stock,
       total_resenas,
       categoria_id,
-      variantes // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
+      variantes, // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
+      imagenes_variantes // Array de imágenes para las variantes
     } = req.body;
 
-        // Convertir variantes a objeto si es string
-        let variantesArray = [];
-        if (variantes) {
-          if (typeof variantes === "string") {
-            variantesArray = JSON.parse(variantes);
-          } else {
-            variantesArray = variantes;
-          }
-        }
+    // Convertir variantes a objeto si es string
+    let variantesArray = [];
+    if (variantes) {
+      if (typeof variantes === "string") {
+        variantesArray = JSON.parse(variantes);
+      } else {
+        variantesArray = variantes;
+      }
+    }
 
     // Usar el ID del usuario extraído del token
     const usuario_id = req.id;
 
-      // Verificar si el producto tiene variantes
-      const tiene_variantes = variantesArray && variantesArray.length > 0;
+    // Verificar si el producto tiene variantes
+    const tiene_variantes = variantesArray && variantesArray.length > 0;
 
     // Insertar el producto en la tabla productos
     const productoId = await new Promise((resolve, reject) => {
@@ -135,12 +136,13 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     });
 
     // Crear las variantes para el producto
+    let varianteIds = [];
     if (variantesArray && variantesArray.length > 0) {
       for (const variante of variantesArray) {
         const { precio_compra, precio_venta, color_id, tamano_id, cantidad_stock } = variante;
         // Verificar que los valores no sean null o undefined
         if (color_id != null && tamano_id != null && cantidad_stock != null) {
-          await new Promise((resolve, reject) => {
+          const varianteId = await new Promise((resolve, reject) => {
             const query = `
               INSERT INTO variantes (precio_compra, precio_venta, producto_id, color_id, tamano_id, cantidad_stock)
               VALUES (?, ?, ?, ?, ?, ?)
@@ -150,10 +152,11 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
               [precio_compra, precio_venta, productoId, color_id, tamano_id, cantidad_stock],
               (err, result) => {
                 if (err) return reject(err);
-                resolve(result);
+                resolve(result.insertId);
               }
             );
           });
+          varianteIds.push(varianteId);
         } else {
           return res.status(400).json({
             message: "Faltan datos para alguna variante: color_id, tamano_id o cantidad_stock"
@@ -162,7 +165,7 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       }
     }
 
-    // Procesar imágenes si se enviaron archivos
+    // Procesar imágenes del producto si se enviaron archivos
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const uploadResult = await new Promise((resolve, reject) => {
@@ -186,12 +189,43 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       }
     }
 
+    // Procesar imágenes de variantes si se enviaron archivos
+    if (req.files && req.files.length > 0 && imagenes_variantes && imagenes_variantes.length > 0) {
+      for (let i = 0; i < imagenes_variantes.length; i++) {
+        const file = imagenes_variantes[i];
+
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "variantes" },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          streamifier.createReadStream(file.buffer).pipe(stream);
+        });
+
+        // Guardar la imagen asociada a la variante
+        await new Promise((resolve, reject) => {
+          const query = `
+            INSERT INTO imagenes_variante (variante_id, url)
+            VALUES (?, ?)
+          `;
+          db.query(query, [varianteIds[i], uploadResult.secure_url], (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          });
+        });
+      }
+    }
+
     res.status(201).json({ message: "Producto, variantes e imágenes creados exitosamente", productoId });
   } catch (error) {
     console.error("Error al crear producto, variantes e imágenes:", error);
     res.status(500).json({ message: "Error al crear producto" });
   }
 });
+
 
 
 // Endpoint para editar un producto

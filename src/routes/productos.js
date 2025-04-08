@@ -80,7 +80,6 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       nombre,
       descripcion,
       sku,
-      costo,
       calificacion_promedio,
       total_resenas,
       categoria_id,
@@ -104,8 +103,8 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     const productoId = await new Promise((resolve, reject) => {
       const query = `
         INSERT INTO productos 
-          (nombre, descripcion, sku, costo, calificacion_promedio, total_resenas, categoria_id, usuario_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
       db.query(
         query,
@@ -113,7 +112,6 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
           nombre,
           descripcion,
           sku,
-          costo,
           calificacion_promedio,
           total_resenas,
           categoria_id,

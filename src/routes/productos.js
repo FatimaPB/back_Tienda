@@ -99,13 +99,16 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     // Usar el ID del usuario extraído del token
     const usuario_id = req.id;
 
+      // Verificar si el producto tiene variantes
+      const tiene_variantes = variantesArray && variantesArray.length > 0;
+
     // Insertar el producto en la tabla productos
     const productoId = await new Promise((resolve, reject) => {
       const query = `
-        INSERT INTO productos 
-          (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
+      INSERT INTO productos 
+        (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id, tiene_variantes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
       db.query(
         query,
         [
@@ -116,6 +119,7 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
           total_resenas,
           categoria_id,
           usuario_id,
+          tiene_variantes ? 1 : 0, // Si tiene variantes, poner 1
         ],
         (err, result) => {
           if (err) return reject(err);

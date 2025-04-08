@@ -341,6 +341,9 @@ router.get("/productos", verifyToken, async (req, res) => {
       SELECT p.id,
              p.nombre,
              p.descripcion,
+             p.precio_compra,
+             p.precio_venta,
+             p.cantidad_stock,
              p.sku,
              c.nombre_categoria AS nombre_categoria,
              u.nombre AS usuario_nombre

@@ -81,8 +81,6 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       descripcion,
       sku,
       costo,
-      porcentaje_ganancia,
-      precio_calculado,
       calificacion_promedio,
       total_resenas,
       categoria_id,
@@ -106,8 +104,8 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     const productoId = await new Promise((resolve, reject) => {
       const query = `
         INSERT INTO productos 
-          (nombre, descripcion, sku, costo, porcentaje_ganancia, precio_calculado, calificacion_promedio, total_resenas, categoria_id, usuario_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (nombre, descripcion, sku, costo, calificacion_promedio, total_resenas, categoria_id, usuario_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       db.query(
         query,
@@ -116,8 +114,6 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
           descripcion,
           sku,
           costo,
-          porcentaje_ganancia,
-          precio_calculado,
           calificacion_promedio,
           total_resenas,
           categoria_id,
@@ -133,17 +129,17 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     // Crear las variantes para el producto
     if (variantesArray && variantesArray.length > 0) {
       for (const variante of variantesArray) {
-        const { color_id, tamano_id, cantidad_stock } = variante;
+        const { precio_compra, precio_venta, color_id, tamano_id, cantidad_stock } = variante;
         // Verificar que los valores no sean null o undefined
         if (color_id != null && tamano_id != null && cantidad_stock != null) {
           await new Promise((resolve, reject) => {
             const query = `
-              INSERT INTO variantes (producto_id, color_id, tamano_id, cantidad_stock)
+              INSERT INTO variantes (precio_compra, precio_venta, producto_id, color_id, tamano_id, cantidad_stock)
               VALUES (?, ?, ?, ?)
             `;
             db.query(
               query,
-              [productoId, color_id, tamano_id, cantidad_stock],
+              [precio_compra, precio_venta, productoId, color_id, tamano_id, cantidad_stock],
               (err, result) => {
                 if (err) return reject(err);
                 resolve(result);

@@ -362,12 +362,21 @@ router.get("/productos", verifyToken, async (req, res) => {
 
             // Obtener variantes (color, tamaño, stock) para el producto
             const queryVariantes = `
-              SELECT  v.precio_compra, v.precio_venta, co.nombre_color, t.nombre_tamano
-              FROM variantes v
-              JOIN colores co ON v.color_id = co.id
-              JOIN tamaños t ON v.tamano_id = t.id
-              WHERE v.producto_id = ?
-            `;
+            SELECT v.id, 
+                   v.producto_id, 
+                   v.color_id, 
+                   v.tamano_id, 
+                   v.cantidad_stock, 
+                   v.precio_compra, 
+                   v.precio_venta,
+                   co.nombre_color, 
+                   t.nombre_tamano
+            FROM variantes v
+            JOIN colores co ON v.color_id = co.id
+            JOIN tamaños t ON v.tamano_id = t.id
+            WHERE v.producto_id = ?
+          `;
+          
             db.query(queryVariantes, [producto.id], (err, variantes) => {
               if (err) {
                 console.error("Error al obtener variantes:", err);

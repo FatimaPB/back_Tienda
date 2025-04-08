@@ -344,6 +344,8 @@ router.get("/productos", verifyToken, async (req, res) => {
              p.precio_compra,
              p.precio_venta,
              p.cantidad_stock,
+             p.creando_en,
+             p.actualizado_en,
              p.sku,
              c.nombre_categoria AS nombre_categoria,
              u.nombre AS usuario_nombre

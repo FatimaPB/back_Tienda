@@ -334,7 +334,9 @@ router.get("/productos", verifyToken, async (req, res) => {
   try {
     // Consulta para obtener todos los productos, su categoría y usuario
     const query = `
-      SELECT p.*, 
+      SELECT p.id,
+             p.descripcion,
+             p.sku,
              c.nombre_categoria AS nombre_categoria,
              u.nombre AS usuario_nombre
       FROM productos p

@@ -81,6 +81,9 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
       descripcion,
       sku,
       calificacion_promedio,
+      precio_compra,
+      precio_venta,
+      cantidad_stock,
       total_resenas,
       categoria_id,
       variantes // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
@@ -106,8 +109,8 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
     const productoId = await new Promise((resolve, reject) => {
       const query = `
       INSERT INTO productos 
-        (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id, tiene_variantes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id, tiene_variantes, precio_compra, precio_venta, cantidad_stock)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ? , ? , ? , ?)
     `;
       db.query(
         query,
@@ -119,6 +122,9 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
           total_resenas,
           categoria_id,
           usuario_id,
+          precio_compra,
+          precio_venta,
+          cantidad_stock,
           tiene_variantes ? 1 : 0, // Si tiene variantes, poner 1
         ],
         (err, result) => {

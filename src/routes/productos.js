@@ -133,7 +133,7 @@ router.post("/productos", verifyToken, upload.array("images"), async (req, res) 
           await new Promise((resolve, reject) => {
             const query = `
               INSERT INTO variantes (precio_compra, precio_venta, producto_id, color_id, tamano_id, cantidad_stock)
-              VALUES (?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?)
             `;
             db.query(
               query,

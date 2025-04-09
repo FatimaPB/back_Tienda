@@ -92,6 +92,8 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
       cantidad_stock,
       total_resenas,
       categoria_id,
+      color_id,
+      tamano_id,
       variantes, // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
       imagenes_variantes // Array de imágenes para las variantes
     } = req.body;
@@ -116,8 +118,8 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
     const productoId = await new Promise((resolve, reject) => {
       const query = `
       INSERT INTO productos 
-        (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id, tiene_variantes, precio_compra, precio_venta, cantidad_stock)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ? , ? , ? , ?)
+        (nombre, descripcion, sku, calificacion_promedio, total_resenas, categoria_id, usuario_id, color_id, tamano_id, tiene_variantes, precio_compra, precio_venta, cantidad_stock)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ? , ? , ? , ? , ? , ?)
     `;
       db.query(
         query,
@@ -129,6 +131,8 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
           total_resenas,
           categoria_id,
           usuario_id,
+          color_id,
+          tamano_id,
           precio_compra,
           precio_venta,
           cantidad_stock,

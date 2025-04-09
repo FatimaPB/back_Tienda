@@ -195,35 +195,36 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
       }
     }
 
-    // Procesar imágenes de variantes si se enviaron archivos
-    if (req.files && req.files.length > 0 && imagenes_variantes && imagenes_variantes.length > 0) {
-      for (let i = 0; i < imagenes_variantes.length; i++) {
-        const file = imagenes_variantes[i];
+ // Procesar imágenes de variantes si se enviaron archivos
+if (req.files['imagenes_variantes'] && req.files['imagenes_variantes'].length > 0) {
+  for (let i = 0; i < req.files['imagenes_variantes'].length; i++) {
+    const file = req.files['imagenes_variantes'][i];
 
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: "variantes" },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-          streamifier.createReadStream(file.buffer).pipe(stream);
-        });
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "variantes" },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      streamifier.createReadStream(file.buffer).pipe(stream);
+    });
 
-        // Guardar la imagen asociada a la variante
-        await new Promise((resolve, reject) => {
-          const query = `
-            INSERT INTO imagenes_variante (variante_id, url)
-            VALUES (?, ?)
-          `;
-          db.query(query, [varianteIds[i], uploadResult.secure_url], (err, result) => {
-            if (err) return reject(err);
-            resolve(result);
-          });
-        });
-      }
-    }
+    // Guardar la imagen asociada a la variante
+    await new Promise((resolve, reject) => {
+      const query = `
+        INSERT INTO imagenes_variante (variante_id, url)
+        VALUES (?, ?)
+      `;
+      db.query(query, [varianteIds[i], uploadResult.secure_url], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+  }
+}
+
 
     res.status(201).json({ message: "Producto, variantes e imágenes creados exitosamente", productoId });
   } catch (error) {

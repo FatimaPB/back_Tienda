@@ -399,10 +399,14 @@ router.get("/productos", verifyToken, async (req, res) => {
              p.actualizado_en,
              p.sku,
              c.nombre_categoria AS nombre_categoria,
+             co.nombre_color AS nombre_color,
+             t.nombre_tamano AS nombre_tamano,
              u.nombre AS usuario_nombre
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id
       JOIN usuarios u ON p.usuario_id = u.id
+      JOIN colores co ON p.color_id = co.id
+      JOIN tamaños t ON p.tamano_id = t.id
     `;
 
     db.query(query, async (err, productos) => {

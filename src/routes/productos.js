@@ -399,7 +399,6 @@ router.get("/productos", verifyToken, async (req, res) => {
              p.actualizado_en,
              p.sku,
              c.nombre_categoria AS nombre_categoria,
-             co.nombre_color AS nombre_color,
              u.nombre AS usuario_nombre
       FROM productos p
       JOIN categorias c ON p.categoria_id = c.id

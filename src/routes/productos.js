@@ -436,12 +436,24 @@ router.get("/productos", verifyToken, async (req, res) => {
             WHERE v.producto_id = ?
           `;
           
-            db.query(queryVariantes, [producto.id], (err, variantes) => {
-              if (err) {
-                console.error("Error al obtener variantes:", err);
-                return reject(err);
-              }
-              producto.variantes = variantes; // Agregar variantes al producto
+            db.query(queryVariantes, [producto.id], async (err, variantes) => {
+              if (err) return reject(err);
+            
+              // Obtener imágenes para cada variante
+              const variantesConImagenes = await Promise.all(variantes.map(async (variante) => {
+                return new Promise((resolveVar, rejectVar) => {
+                  const queryImagenesVariante = `
+                    SELECT url FROM imagenes_variante WHERE variante_id = ?
+                  `;
+                  db.query(queryImagenesVariante, [variante.id], (err, imagenesVar) => {
+                    if (err) return rejectVar(err);
+                    variante.imagenes = imagenesVar.map(img => img.url);
+                    resolveVar(variante);
+                  });
+                });
+              }));
+
+                  producto.variantes = variantesConImagenes; // Agregar variantes al producto
               resolve(producto);
             });
           });

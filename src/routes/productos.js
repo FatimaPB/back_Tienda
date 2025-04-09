@@ -505,9 +505,8 @@ router.get('/productos-simples', (req, res) => {
     SELECT p.id, 
            CONCAT(p.nombre, ' - ', co.nombre_color, ' - ', t.nombre_tamano) AS nombre
     FROM productos p
-    LEFT JOIN variantes v ON v.producto_id = p.id
-    LEFT JOIN colores co ON v.color_id = co.id
-    LEFT JOIN tamaños t ON v.tamano_id = t.id
+    LEFT JOIN colores co ON p.color_id = co.id
+    LEFT JOIN tamaños t ON p.tamano_id = t.id
   `;
 
   db.query(query, (err, results) => {

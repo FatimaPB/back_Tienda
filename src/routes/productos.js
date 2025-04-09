@@ -176,8 +176,8 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
     }
 
     // Procesar imágenes del producto si se enviaron archivos
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
+    if (req.files['images'] && req.files['images'].length > 0) {
+      for (const file of req.files['images']) {
         const uploadResult = await new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
             { folder: "productos" },

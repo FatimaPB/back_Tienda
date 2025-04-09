@@ -71,9 +71,15 @@ function verifyToken(req, res, next) {
     res.status(401).json({ message: 'Token inválido o expirado.' });
   }
 }
+
+const cpUpload = upload.fields([
+  { name: 'images', maxCount: 10 },  // Para imágenes del producto
+  { name: 'imagenes_variantes', maxCount: 10 }  // Para imágenes de variantes
+]);
+
 // Endpoint para crear un producto con imágenes (ahora protegido por el middleware)
 // Endpoint para crear un producto con variantes e imágenes
-router.post("/productos", verifyToken, upload.array("images"), async (req, res) => {
+router.post("/productos", verifyToken, cpUpload, async (req, res) => {
   try {
     // Extraer datos del producto del body
     const {

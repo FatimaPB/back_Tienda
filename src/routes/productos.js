@@ -521,6 +521,7 @@ router.get('/productos-simples', (req, res) => {
 
 
 
+
   // Ruta para obtener todos los productos con sus imágenes
 router.get("/productos-publico", async (req, res) => {
     try {

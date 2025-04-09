@@ -389,26 +389,26 @@ router.get("/productos", verifyToken, async (req, res) => {
   try {
     // Consulta para obtener todos los productos, su categoría y usuario
     const query = `
-      SELECT p.id,
-             p.color_id, 
-             p.tamano_id, 
-             p.nombre,
-             p.descripcion,
-             p.precio_compra,
-             p.precio_venta,
-             p.cantidad_stock,
-             p.creado_en,
-             p.actualizado_en,
-             p.sku,
-             co.nombre_color, 
-             t.nombre_tamano
-             c.nombre_categoria AS nombre_categoria,
-             u.nombre AS usuario_nombre
-      FROM productos p
-      JOIN categorias c ON p.categoria_id = c.id
-      JOIN usuarios u ON p.usuario_id = u.id
-      JOIN colores co ON p.color_id = co.id
-      JOIN tamaños t ON p.tamano_id = t.id
+              SELECT p.id,
+              p.color_id, 
+              p.tamano_id, 
+              p.nombre,
+              p.descripcion,
+              p.precio_compra,
+              p.precio_venta,
+              p.cantidad_stock,
+              p.creado_en,
+              p.actualizado_en,
+              p.sku,
+              co.nombre_color, 
+              t.nombre_tamano,
+              c.nombre_categoria AS nombre_categoria,
+              u.nombre AS usuario_nombre
+        FROM productos p
+        JOIN categorias c ON p.categoria_id = c.id
+        JOIN usuarios u ON p.usuario_id = u.id
+        LEFT JOIN colores co ON p.color_id = co.id
+        LEFT JOIN tamaños t ON p.tamano_id = t.id;
     `;
 
     db.query(query, async (err, productos) => {

@@ -95,7 +95,6 @@ router.post("/productos", verifyToken, cpUpload, async (req, res) => {
       color_id,
       tamano_id,
       variantes, // Variantes es un array de objetos { color_id, tamano_id, cantidad_stock }
-      imagenes_variantes // Array de imágenes para las variantes
     } = req.body;
 
     // Convertir variantes a objeto si es string
@@ -563,49 +562,94 @@ router.get("/productos-publico", async (req, res) => {
     }
   });
 
+
+
+
+  
+
   // Ruta para obtener un producto por ID
-router.get("/productos/:id", async (req, res) => {
-  const { id } = req.params;  // Obtener el ID del producto desde la URL
-
-  try {
-    // Consulta para obtener el producto con sus detalles, categoría y usuario
-    const queryProducto = `
-      SELECT p.*, c.nombre_categoria AS nombre_categoria, u.nombre AS usuario_nombre
-      FROM productos p
-      JOIN categorias c ON p.categoria_id = c.id
-      JOIN usuarios u ON p.usuario_id = u.id
-      WHERE p.id = ?
-    `;
-    
-    // Ejecutar la consulta para obtener los detalles del producto
-    db.query(queryProducto, [id], (err, producto) => {
-      if (err) {
-        console.error("Error al obtener el producto:", err);
-        return res.status(500).json({ message: "Error al obtener el producto" });
-      }
-
-      if (producto.length === 0) {
-        return res.status(404).json({ message: "Producto no encontrado" });
-      }
-
-      // Obtener las imágenes del producto
-      const queryImagenes = "SELECT * FROM imagenes WHERE producto_id = ?";
-      db.query(queryImagenes, [id], (err, imagenes) => {
+  router.get("/productos/:id", async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const queryProducto = `
+        SELECT p.*, 
+               c.nombre_categoria AS nombre_categoria, 
+               u.nombre AS usuario_nombre
+        FROM productos p
+        JOIN categorias c ON p.categoria_id = c.id
+        JOIN usuarios u ON p.usuario_id = u.id
+        WHERE p.id = ?
+      `;
+  
+      db.query(queryProducto, [id], (err, resultadoProducto) => {
         if (err) {
-          console.error("Error al obtener las imágenes:", err);
-          return res.status(500).json({ message: "Error al obtener las imágenes" });
+          console.error("Error al obtener el producto:", err);
+          return res.status(500).json({ message: "Error al obtener el producto" });
         }
-
-        // Agregar las imágenes al objeto del producto
-        producto[0].imagenes = imagenes.map(imagen => imagen.url);
-        res.status(200).json(producto[0]);
+  
+        if (resultadoProducto.length === 0) {
+          return res.status(404).json({ message: "Producto no encontrado" });
+        }
+  
+        const producto = resultadoProducto[0];
+  
+        // Obtener imágenes del producto
+        const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
+        db.query(queryImagenes, [id], (err, imagenes) => {
+          if (err) {
+            console.error("Error al obtener las imágenes del producto:", err);
+            return res.status(500).json({ message: "Error al obtener las imágenes" });
+          }
+  
+          producto.imagenes = imagenes.map(img => img.url);
+  
+          // Obtener variantes del producto
+          const queryVariantes = `
+            SELECT v.id, 
+                   v.producto_id, 
+                   v.color_id, 
+                   v.tamano_id, 
+                   v.cantidad_stock, 
+                   v.precio_compra, 
+                   v.precio_venta,
+                   co.nombre_color, 
+                   t.nombre_tamano
+            FROM variantes v
+            JOIN colores co ON v.color_id = co.id
+            JOIN tamaños t ON v.tamano_id = t.id
+            WHERE v.producto_id = ?
+          `;
+  
+          db.query(queryVariantes, [id], async (err, variantes) => {
+            if (err) {
+              console.error("Error al obtener las variantes:", err);
+              return res.status(500).json({ message: "Error al obtener variantes" });
+            }
+  
+            // Para cada variante, obtener imágenes asociadas
+            const variantesConImagenes = await Promise.all(variantes.map((variante) => {
+              return new Promise((resolveVar, rejectVar) => {
+                const queryImagenesVariante = "SELECT url FROM imagenes_variante WHERE variante_id = ?";
+                db.query(queryImagenesVariante, [variante.id], (err, imagenesVariante) => {
+                  if (err) return rejectVar(err);
+                  variante.imagenes = imagenesVariante.map(img => img.url);
+                  resolveVar(variante);
+                });
+              });
+            }));
+  
+            producto.variantes = variantesConImagenes;
+            res.status(200).json(producto);
+          });
+        });
       });
-    });
-  } catch (error) {
-    console.error("Error al obtener el producto:", error);
-    res.status(500).json({ message: "Error al obtener el producto" });
-  }
-});
+    } catch (error) {
+      console.error("Error general:", error);
+      res.status(500).json({ message: "Error al obtener el producto" });
+    }
+  });
+  
 
   
   // Ruta para agregar producto al catálogo

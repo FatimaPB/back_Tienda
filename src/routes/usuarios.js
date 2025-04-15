@@ -43,7 +43,7 @@ router.get('/check-auth', verifyToken, (req, res) => {
 // Obtener carrito del usuario autenticado
 router.get('/carrito', verifyToken, (req, res) => {
   db.query(
-    `SELECT ac.id, ac.producto_id, p.nombre, ac.cantidad, 
+    `SELECT ac.id, ac.producto_id, p.nombre, p.precio_venta, ac.cantidad, 
             (SELECT GROUP_CONCAT(url) FROM imagenes WHERE producto_id = p.id) AS imagenes
      FROM productos_carrito ac 
      JOIN productos p ON ac.producto_id = p.id

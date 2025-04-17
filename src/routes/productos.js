@@ -563,71 +563,87 @@ router.get("/productos-publico", async (req, res) => {
   });
 
 
-
-
+// Ruta para obtener un producto o una variante específica
+router.get("/productos/:id/:varianteId?", async (req, res) => {
+  const { id, varianteId } = req.params;
   
-
-  // Ruta para obtener un producto por ID
-  router.get("/productos/:id", async (req, res) => {
-    const { id } = req.params;
+  try {
+    // Obtener el producto por ID
+    const queryProducto = `
+      SELECT p.*, 
+             c.nombre_categoria AS nombre_categoria, 
+             u.nombre AS usuario_nombre
+      FROM productos p
+      JOIN categorias c ON p.categoria_id = c.id
+      JOIN usuarios u ON p.usuario_id = u.id
+      WHERE p.id = ?
+    `;
+    
+    db.query(queryProducto, [id], (err, resultadoProducto) => {
+      if (err) {
+        console.error("Error al obtener el producto:", err);
+        return res.status(500).json({ message: "Error al obtener el producto" });
+      }
   
-    try {
-      const queryProducto = `
-        SELECT p.*, 
-               c.nombre_categoria AS nombre_categoria, 
-               u.nombre AS usuario_nombre
-        FROM productos p
-        JOIN categorias c ON p.categoria_id = c.id
-        JOIN usuarios u ON p.usuario_id = u.id
-        WHERE p.id = ?
-      `;
+      if (resultadoProducto.length === 0) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
   
-      db.query(queryProducto, [id], (err, resultadoProducto) => {
+      const producto = resultadoProducto[0];
+  
+      // Obtener imágenes del producto
+      const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
+      db.query(queryImagenes, [id], (err, imagenes) => {
         if (err) {
-          console.error("Error al obtener el producto:", err);
-          return res.status(500).json({ message: "Error al obtener el producto" });
+          console.error("Error al obtener las imágenes del producto:", err);
+          return res.status(500).json({ message: "Error al obtener las imágenes" });
         }
   
-        if (resultadoProducto.length === 0) {
-          return res.status(404).json({ message: "Producto no encontrado" });
-        }
+        producto.imagenes = imagenes.map(img => img.url);
   
-        const producto = resultadoProducto[0];
+        // Obtener variantes del producto
+        const queryVariantes = `
+          SELECT v.id, 
+                 v.producto_id, 
+                 v.color_id, 
+                 v.tamano_id, 
+                 v.cantidad_stock, 
+                 v.precio_compra, 
+                 v.precio_venta,
+                 co.nombre_color, 
+                 t.nombre_tamano
+          FROM variantes v
+          JOIN colores co ON v.color_id = co.id
+          JOIN tamaños t ON v.tamano_id = t.id
+          WHERE v.producto_id = ?
+        `;
   
-        // Obtener imágenes del producto
-        const queryImagenes = "SELECT url FROM imagenes WHERE producto_id = ?";
-        db.query(queryImagenes, [id], (err, imagenes) => {
+        db.query(queryVariantes, [id], async (err, variantes) => {
           if (err) {
-            console.error("Error al obtener las imágenes del producto:", err);
-            return res.status(500).json({ message: "Error al obtener las imágenes" });
+            console.error("Error al obtener las variantes:", err);
+            return res.status(500).json({ message: "Error al obtener variantes" });
           }
   
-          producto.imagenes = imagenes.map(img => img.url);
-  
-          // Obtener variantes del producto
-          const queryVariantes = `
-            SELECT v.id, 
-                   v.producto_id, 
-                   v.color_id, 
-                   v.tamano_id, 
-                   v.cantidad_stock, 
-                   v.precio_compra, 
-                   v.precio_venta,
-                   co.nombre_color, 
-                   t.nombre_tamano
-            FROM variantes v
-            JOIN colores co ON v.color_id = co.id
-            JOIN tamaños t ON v.tamano_id = t.id
-            WHERE v.producto_id = ?
-          `;
-  
-          db.query(queryVariantes, [id], async (err, variantes) => {
-            if (err) {
-              console.error("Error al obtener las variantes:", err);
-              return res.status(500).json({ message: "Error al obtener variantes" });
+          // Si hay un id de variante, filtrar para esa variante
+          if (varianteId) {
+            const varianteSeleccionada = variantes.find(v => v.id === parseInt(varianteId));
+            if (varianteSeleccionada) {
+              // Obtener imágenes de la variante
+              const queryImagenesVariante = "SELECT url FROM imagenes_variante WHERE variante_id = ?";
+              db.query(queryImagenesVariante, [varianteSeleccionada.id], (err, imagenesVariante) => {
+                if (err) {
+                  console.error("Error al obtener imágenes de la variante:", err);
+                  return res.status(500).json({ message: "Error al obtener imágenes de la variante" });
+                }
+                varianteSeleccionada.imagenes = imagenesVariante.map(img => img.url);
+                return res.status(200).json(varianteSeleccionada);
+              });
+            } else {
+              return res.status(404).json({ message: "Variante no encontrada" });
             }
-  
-            // Para cada variante, obtener imágenes asociadas
+          } else {
+            // Si no se especificó una variante, devuelve el producto completo
+            // Obtener imágenes para cada variante
             const variantesConImagenes = await Promise.all(variantes.map((variante) => {
               return new Promise((resolveVar, rejectVar) => {
                 const queryImagenesVariante = "SELECT url FROM imagenes_variante WHERE variante_id = ?";
@@ -641,14 +657,20 @@ router.get("/productos-publico", async (req, res) => {
   
             producto.variantes = variantesConImagenes;
             res.status(200).json(producto);
-          });
+          }
         });
       });
-    } catch (error) {
-      console.error("Error general:", error);
-      res.status(500).json({ message: "Error al obtener el producto" });
-    }
-  });
+    });
+  } catch (error) {
+    console.error("Error general:", error);
+    res.status(500).json({ message: "Error al obtener el producto o la variante" });
+  }
+});
+
+
+  
+
+
   
 
   

@@ -840,4 +840,34 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 });
 
 
+
+// En Express
+router.get('/productos/relacionados/:productoId', async (req, res) => {
+  const productoId = req.params.productoId;
+
+  try {
+    // 1. Obtener la categoría del producto actual
+    const [producto] = await db.execute('SELECT categoria_id FROM productos WHERE id = ?', [productoId]);
+
+    if (!producto.length) {
+      return res.status(404).json({ mensaje: 'Producto no encontrado' });
+    }
+
+    const categoriaId = producto[0].categoria_id;
+
+    // 2. Buscar otros productos de la misma categoría (excluyendo el actual)
+    const [relacionados] = await db.execute(
+      'SELECT id, nombre, descripcion, precio_venta FROM productos WHERE categoria_id = ? AND id != ? LIMIT 4',
+      [categoriaId, productoId]
+    );
+
+    res.json(relacionados);
+  } catch (error) {
+    console.error('Error al obtener relacionados:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+});
+
+
+
   module.exports = router;

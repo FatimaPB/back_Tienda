@@ -749,45 +749,73 @@ router.get('/catalogo/categoria/:categoriaId', (req, res) => {
   });
 });
 
-// Endpoint para obtener productos con imágenes asociadas
-router.get('/productos/categoria/nombre/:nombreCategoria', (req, res) => {
+router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
   const nombreCategoria = req.params.nombreCategoria;
-  
-  // Consulta para obtener productos y sus imágenes asociadas
-  db.query(`
-    SELECT p.*, i.url AS imagen_url 
-    FROM productos p
-    LEFT JOIN imagenes i ON p.id = i.producto_id
-    WHERE p.categoria_id = (SELECT id FROM categorias WHERE nombre_categoria = ?)
-    AND p.id IN (SELECT producto_id FROM catalogo_productos)`, [nombreCategoria], (err, results) => {
-    
-    if (err) {
-      return res.status(500).json({ message: 'Error al obtener productos' });
-    }
-    
-    // Agrupar las imágenes por producto
-    const productosConImagenes = results.reduce((acc, producto) => {
-      const productoExistente = acc.find(p => p.id === producto.id);
-      
-      if (productoExistente) {
-        productoExistente.imagenes.push(producto.imagen_url);
-      } else {
-        acc.push({
-          ...producto,
-          imagenes: producto.imagen_url ? [producto.imagen_url] : []
-        });
+
+  try {
+    // Obtener productos de la categoría
+    const queryProductos = `
+      SELECT p.*, c.nombre_categoria, co.nombre_color, t.nombre_tamano
+      FROM productos p
+      JOIN categorias c ON p.categoria_id = c.id
+      LEFT JOIN colores co ON p.color_id = co.id
+      LEFT JOIN tamaños t ON p.tamano_id = t.id
+      WHERE c.nombre_categoria = ?
+      AND p.id IN (SELECT producto_id FROM catalogo_productos)
+    `;
+
+    db.query(queryProductos, [nombreCategoria], async (err, productos) => {
+      if (err) {
+        console.error("Error al obtener productos:", err);
+        return res.status(500).json({ message: "Error al obtener productos" });
       }
-      
-      return acc;
-    }, []);
-    
-    res.json(productosConImagenes);
-  });
+
+      // Obtener imágenes y variantes por producto
+      const productosConDetalles = await Promise.all(productos.map(async (producto) => {
+        return new Promise((resolve, reject) => {
+          // Obtener imágenes del producto
+          db.query("SELECT url FROM imagenes WHERE producto_id = ?", [producto.id], (err, imagenes) => {
+            if (err) return reject(err);
+            producto.imagenes = imagenes.map(img => img.url);
+
+            // Obtener variantes del producto
+            const queryVariantes = `
+              SELECT v.id, v.producto_id, v.color_id, v.tamano_id, v.cantidad_stock,
+                     v.precio_compra, v.precio_venta, co.nombre_color, t.nombre_tamano
+              FROM variantes v
+              JOIN colores co ON v.color_id = co.id
+              JOIN tamaños t ON v.tamano_id = t.id
+              WHERE v.producto_id = ?
+            `;
+
+            db.query(queryVariantes, [producto.id], async (err, variantes) => {
+              if (err) return reject(err);
+
+              // Obtener imágenes por variante
+              const variantesConImagenes = await Promise.all(variantes.map(async (variante) => {
+                return new Promise((resolveVar, rejectVar) => {
+                  db.query("SELECT url FROM imagenes_variante WHERE variante_id = ?", [variante.id], (err, imagenesVar) => {
+                    if (err) return rejectVar(err);
+                    variante.imagenes = imagenesVar.map(img => img.url);
+                    resolveVar(variante);
+                  });
+                });
+              }));
+
+              producto.variantes = variantesConImagenes;
+              resolve(producto);
+            });
+          });
+        });
+      }));
+
+      res.json(productosConDetalles);
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: 'Error al procesar la solicitud' });
+  }
 });
-
-
-
-
 
 
   module.exports = router;

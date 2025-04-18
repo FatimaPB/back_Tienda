@@ -841,38 +841,42 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 
 
 
-router.get('/productos/relacionados/:productoId', async (req, res) => {
-  const productoId = parseInt(req.params.productoId, 10);
-  if (isNaN(productoId)) return res.status(400).json({ mensaje: 'ID inválido' });
+router.get('/productos/relacionados/:productoId', (req, res) => {
+  const productoId = parseInt(req.params.productoId, 10); // Asegura que sea número
 
-  try {
-    // Buscar la categoría del producto
-    const [productoRows] = await db.execute('SELECT categoria_id FROM productos WHERE id = ?', [productoId]);
+  // 1. Obtener categoría del producto actual
+  const queryCategoria = 'SELECT categoria_id FROM productos WHERE id = ?';
+  db.query(queryCategoria, [productoId], (err, results) => {
+    if (err) {
+      console.error('Error al obtener categoría:', err);
+      return res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
 
-    console.log('Producto encontrado:', productoRows);
-
-    if (!productoRows.length) {
+    if (!results.length) {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
 
-    const categoriaId = productoRows[0].categoria_id;
+    const categoriaId = results[0].categoria_id;
 
-    // Buscar productos relacionados
-    const [relacionados] = await db.execute(
-      `SELECT p.id, p.nombre, p.descripcion, p.precio_venta,
-              (SELECT url FROM imagenes WHERE producto_id = p.id LIMIT 1) AS imagen
-       FROM productos p
-       WHERE p.categoria_id = ? AND p.id != ?
-       LIMIT 4`,
-      [categoriaId, productoId]
-    );
+    // 2. Obtener otros productos de la misma categoría (excluyendo el actual)
+    const queryRelacionados = `
+      SELECT id, nombre, descripcion, precio_venta 
+      FROM productos 
+      WHERE categoria_id = ? AND id != ? 
+      LIMIT 4
+    `;
 
-    res.json(relacionados);
-  } catch (error) {
-    console.error('Error al obtener relacionados:', error);
-    res.status(500).json({ mensaje: 'Error interno del servidor' });
-  }
+    db.query(queryRelacionados, [categoriaId, productoId], (err, relacionados) => {
+      if (err) {
+        console.error('Error al obtener relacionados:', err);
+        return res.status(500).json({ mensaje: 'Error interno del servidor' });
+      }
+
+      res.json(relacionados);
+    });
+  });
 });
+
 
 
   module.exports = router;

@@ -840,11 +840,10 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 });
 
 
+router.get('/relacionados/:productoId', (req, res) => {
+  const productoId = parseInt(req.params.productoId, 10);
+  console.log('Entrando a ruta relacionados. ID:', productoId);
 
-router.get('/productos/relacionados/:productoId', (req, res) => {
-  const productoId = parseInt(req.params.productoId, 10); // Asegura que sea número
-
-  // 1. Obtener categoría del producto actual
   const queryCategoria = 'SELECT categoria_id FROM productos WHERE id = ?';
   db.query(queryCategoria, [productoId], (err, results) => {
     if (err) {
@@ -852,13 +851,14 @@ router.get('/productos/relacionados/:productoId', (req, res) => {
       return res.status(500).json({ mensaje: 'Error interno del servidor' });
     }
 
+    console.log('Resultado de categoría:', results);
+
     if (!results.length) {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
 
     const categoriaId = results[0].categoria_id;
 
-    // 2. Obtener otros productos de la misma categoría (excluyendo el actual)
     const queryRelacionados = `
       SELECT id, nombre, descripcion, precio_venta 
       FROM productos 
@@ -872,10 +872,12 @@ router.get('/productos/relacionados/:productoId', (req, res) => {
         return res.status(500).json({ mensaje: 'Error interno del servidor' });
       }
 
+      console.log('Relacionados:', relacionados);
       res.json(relacionados);
     });
   });
 });
+
 
 router.get('/test/:id', (req, res) => {
   const id = parseInt(req.params.id);

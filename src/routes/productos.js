@@ -877,6 +877,22 @@ router.get('/productos/relacionados/:productoId', (req, res) => {
   });
 });
 
+router.get('/test/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  console.log('ID recibido:', id);
+
+  db.query('SELECT * FROM productos WHERE id = ?', [id], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error en la consulta' });
+    }
+
+    console.log('Resultado:', result);
+    res.json(result);
+  });
+});
+
+
 
 
   module.exports = router;

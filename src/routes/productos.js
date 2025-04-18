@@ -840,18 +840,17 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 });
 
 
-router.get('/relacionados/:productoId', (req, res) => {
+router.get('/relacionados/:productoId', async (req, res) => {
   const productoId = parseInt(req.params.productoId, 10);
   console.log('Entrando a ruta relacionados. ID:', productoId);
 
   const queryCategoria = 'SELECT categoria_id FROM productos WHERE id = ?';
+
   db.query(queryCategoria, [productoId], (err, results) => {
     if (err) {
       console.error('Error al obtener categoría:', err);
       return res.status(500).json({ mensaje: 'Error interno del servidor' });
     }
-
-    console.log('Resultado de categoría:', results);
 
     if (!results.length) {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
@@ -860,20 +859,62 @@ router.get('/relacionados/:productoId', (req, res) => {
     const categoriaId = results[0].categoria_id;
 
     const queryRelacionados = `
-      SELECT id, nombre, descripcion, precio_venta 
-      FROM productos 
-      WHERE categoria_id = ? AND id != ? 
+      SELECT p.id, p.nombre, p.descripcion, p.precio_venta
+      FROM productos p
+      WHERE p.categoria_id = ? AND p.id != ?
       LIMIT 4
     `;
 
-    db.query(queryRelacionados, [categoriaId, productoId], (err, relacionados) => {
+    db.query(queryRelacionados, [categoriaId, productoId], async (err, relacionados) => {
       if (err) {
         console.error('Error al obtener relacionados:', err);
         return res.status(500).json({ mensaje: 'Error interno del servidor' });
       }
 
-      console.log('Relacionados:', relacionados);
-      res.json(relacionados);
+      try {
+        const productosConDetalles = await Promise.all(relacionados.map(async (producto) => {
+          return new Promise((resolve, reject) => {
+            const queryImagenes = 'SELECT url FROM imagenes WHERE producto_id = ?';
+            db.query(queryImagenes, [producto.id], (err, imagenes) => {
+              if (err) return reject(err);
+              producto.imagenes = imagenes.map(img => img.url);
+
+              const queryVariantes = `
+                SELECT v.id, v.color_id, v.tamano_id, v.cantidad_stock,
+                       v.precio_compra, v.precio_venta,
+                       co.nombre_color, t.nombre_tamano
+                FROM variantes v
+                JOIN colores co ON v.color_id = co.id
+                JOIN tamaños t ON v.tamano_id = t.id
+                WHERE v.producto_id = ?
+              `;
+
+              db.query(queryVariantes, [producto.id], async (err, variantes) => {
+                if (err) return reject(err);
+
+                const variantesConImagenes = await Promise.all(variantes.map(variante => {
+                  return new Promise((resolveVar, rejectVar) => {
+                    const queryImagenesVar = 'SELECT url FROM imagenes_variante WHERE variante_id = ?';
+                    db.query(queryImagenesVar, [variante.id], (err, imgsVar) => {
+                      if (err) return rejectVar(err);
+                      variante.imagenes = imgsVar.map(img => img.url);
+                      resolveVar(variante);
+                    });
+                  });
+                }));
+
+                producto.variantes = variantesConImagenes;
+                resolve(producto);
+              });
+            });
+          });
+        }));
+
+        res.json(productosConDetalles);
+      } catch (error) {
+        console.error('Error al procesar detalles:', error);
+        res.status(500).json({ mensaje: 'Error al procesar productos relacionados' });
+      }
     });
   });
 });

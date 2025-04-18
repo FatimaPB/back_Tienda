@@ -840,7 +840,7 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 });
 
 
-router.get('/productos/relacionados/:productoId', (req, res) => {
+router.get('/relacionados/:productoId', (req, res) => {
   const productoId = parseInt(req.params.productoId, 10);
   console.log('Entrando a ruta relacionados. ID:', productoId);
 

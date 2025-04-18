@@ -841,19 +841,18 @@ router.get('/productos/categoria/nombre/:nombreCategoria', async (req, res) => {
 
 
 
-// En Express
 router.get('/productos/relacionados/:productoId', async (req, res) => {
   const productoId = req.params.productoId;
 
   try {
     // 1. Obtener la categoría del producto actual
-    const [producto] = await db.execute('SELECT categoria_id FROM productos WHERE id = ?', [productoId]);
+    const [productoRows] = await db.execute('SELECT categoria_id FROM productos WHERE id = ?', [productoId]);
 
-    if (!producto.length) {
+    if (!productoRows.length) {
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
 
-    const categoriaId = producto[0].categoria_id;
+    const categoriaId = productoRows[0].categoria_id;
 
     // 2. Buscar otros productos de la misma categoría (excluyendo el actual)
     const [relacionados] = await db.execute(
@@ -867,6 +866,7 @@ router.get('/productos/relacionados/:productoId', async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 });
+
 
 
 

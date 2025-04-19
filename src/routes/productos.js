@@ -859,7 +859,7 @@ router.get('/relacionados/:productoId', async (req, res) => {
     const categoriaId = results[0].categoria_id;
 
     const queryRelacionados = `
-      SELECT p.id, p.nombre, p.descripcion, p.precio_venta, p.antidad_stock, p.color_id, p.tamano_id
+      SELECT p.id, p.nombre, p.descripcion, p.precio_venta, p.antidad_stock, p.color_id, p.tamano_id ,
       co.nombre_color, t.nombre_tamano
       FROM productos p
       JOIN colores co ON p.color_id = co.id

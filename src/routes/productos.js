@@ -859,11 +859,11 @@ router.get('/relacionados/:productoId', async (req, res) => {
     const categoriaId = results[0].categoria_id;
 
     const queryRelacionados = `
-      SELECT p.id, p.nombre, p.descripcion, p.precio_venta, p.antidad_stock,
+      SELECT p.id, p.nombre, p.descripcion, p.precio_venta, p.antidad_stock, p.color_id, p.tamano_id
       co.nombre_color, t.nombre_tamano
       FROM productos p
-      JOIN colores co ON v.color_id = co.id
-      JOIN tamaños t ON v.tamano_id = t.id
+      JOIN colores co ON p.color_id = co.id
+      JOIN tamaños t ON p.tamano_id = t.id
       WHERE p.categoria_id = ? AND p.id != ?
       LIMIT 5
     `;

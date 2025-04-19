@@ -862,7 +862,7 @@ router.get('/relacionados/:productoId', async (req, res) => {
       SELECT p.id, p.nombre, p.descripcion, p.precio_venta
       FROM productos p
       WHERE p.categoria_id = ? AND p.id != ?
-      LIMIT 4
+      LIMIT 5
     `;
 
     db.query(queryRelacionados, [categoriaId, productoId], async (err, relacionados) => {

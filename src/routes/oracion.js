@@ -2,12 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-// Ruta para obtener una oración por título
+// Ruta para obtener la oración del Ángelus
 router.get('/oracion', (req, res) => {
-  const { titulo } = req.params;
   const query = 'SELECT id, titulo, contenido, fecha_creacion FROM oraciones WHERE titulo = ?';
 
-  db.query(query, [titulo], (err, results) => {
+  db.query(query, ['Ángelus'], (err, results) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ message: 'Error al obtener la oración' });

@@ -40,6 +40,8 @@ router.get('/check-auth', verifyToken, (req, res) => {
     usuario: req.usuario // opcional, según la información que quieras devolver
   });
 });
+
+
 // Obtener carrito del usuario autenticado
 router.get('/carrito', verifyToken, (req, res) => {
   db.query(
@@ -69,70 +71,55 @@ router.get('/carrito', verifyToken, (req, res) => {
 
 // Agregar producto al carrito
 router.post('/carrito/agregar', verifyToken, (req, res) => {
-  const { producto_id, cantidad } = req.body;
+  const { producto_id, variante_id, cantidad } = req.body;
   const usuario_id = req.usuario.id;
 
   if (!producto_id || cantidad <= 0) {
     return res.status(400).json({ message: 'Datos inválidos' });
   }
 
-  // Verificar si el producto ya está en el carrito
-  db.query(
-    'SELECT cantidad FROM productos_carrito WHERE usuario_id = ? AND producto_id = ?',
-    [usuario_id, producto_id],
-    (error, results) => {
-      if (error) {
-        console.error('Error al buscar producto en el carrito:', error);
-        return res.status(500).json({ message: 'Error al buscar producto' });
-      }
+  // Verificar si el producto (con o sin variante) ya está en el carrito
+  const queryBuscar = `SELECT cantidad FROM productos_carrito WHERE usuario_id = ? AND producto_id = ? AND ${variante_id ? 'variante_id = ?' : 'variante_id IS NULL'}`;
+  const paramsBuscar = variante_id ? [usuario_id, producto_id, variante_id] : [usuario_id, producto_id];
 
-      if (results.length > 0) {
-        const nuevaCantidad = results[0].cantidad + cantidad;
-
-        if (nuevaCantidad > 0) {
-          // Actualizar cantidad si es mayor que 0
-          db.query(
-            'UPDATE productos_carrito SET cantidad = ? WHERE usuario_id = ? AND producto_id = ?',
-            [nuevaCantidad, usuario_id, producto_id],
-            (updateError) => {
-              if (updateError) {
-                console.error('Error al actualizar cantidad:', updateError);
-                return res.status(500).json({ message: 'Error al actualizar cantidad' });
-              }
-              res.json({ message: 'Cantidad actualizada en el carrito' });
-            }
-          );
-        } else {
-          // Eliminar si la cantidad es 0
-          db.query(
-            'DELETE FROM productos_carrito WHERE usuario_id = ? AND producto_id = ?',
-            [usuario_id, producto_id],
-            (deleteError) => {
-              if (deleteError) {
-                console.error('Error al eliminar producto del carrito:', deleteError);
-                return res.status(500).json({ message: 'Error al eliminar producto' });
-              }
-              res.json({ message: 'Producto eliminado del carrito' });
-            }
-          );
-        }
-      } else {
-        // Insertar nuevo producto
-        db.query(
-          'INSERT INTO productos_carrito (usuario_id, producto_id, cantidad) VALUES (?, ?, ?)',
-          [usuario_id, producto_id, cantidad],
-          (insertError) => {
-            if (insertError) {
-              console.error('Error al agregar producto al carrito:', insertError);
-              return res.status(500).json({ message: 'Error al agregar producto' });
-            }
-            res.json({ message: 'Producto agregado al carrito' });
-          }
-        );
-      }
+  db.query(queryBuscar, paramsBuscar, (error, results) => {
+    if (error) {
+      console.error('Error al buscar producto en el carrito:', error);
+      return res.status(500).json({ message: 'Error al buscar producto' });
     }
-  );
+
+    if (results.length > 0) {
+      const nuevaCantidad = results[0].cantidad + cantidad;
+
+      // Actualizar cantidad
+      const queryUpdate = `UPDATE productos_carrito SET cantidad = ? WHERE usuario_id = ? AND producto_id = ? AND ${variante_id ? 'variante_id = ?' : 'variante_id IS NULL'}`;
+      const paramsUpdate = variante_id ? [nuevaCantidad, usuario_id, producto_id, variante_id] : [nuevaCantidad, usuario_id, producto_id];
+
+      db.query(queryUpdate, paramsUpdate, (updateError) => {
+        if (updateError) {
+          console.error('Error al actualizar cantidad:', updateError);
+          return res.status(500).json({ message: 'Error al actualizar cantidad' });
+        }
+        res.json({ message: 'Cantidad actualizada en el carrito' });
+      });
+
+    } else {
+      // Insertar nuevo producto
+      db.query(
+        'INSERT INTO productos_carrito (usuario_id, producto_id, variante_id, cantidad) VALUES (?, ?, ?, ?)',
+        [usuario_id, producto_id, variante_id || null, cantidad],
+        (insertError) => {
+          if (insertError) {
+            console.error('Error al agregar producto al carrito:', insertError);
+            return res.status(500).json({ message: 'Error al agregar producto' });
+          }
+          res.json({ message: 'Producto agregado al carrito' });
+        }
+      );
+    }
+  });
 });
+
 
 // Vaciar carrito
 router.post('/carrito/limpiar', verifyToken, (req, res) => {

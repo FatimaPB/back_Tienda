@@ -429,7 +429,7 @@ router.get('/ventas/historial-todos', verifyToken, (req, res) => {
     // Obtener detalles de los productos de cada venta
     const ventasIds = ventas.map(v => v.id);
     const consultaDetalles = `
-            SELECT dv.venta_id, p.nombre AS producto, dv.cantidad, dv.precio_unitario
+            SELECT dv.venta_id, p.nombre AS nombre, dv.cantidad, dv.precio_unitario
   FROM detalle_ventas dv
   JOIN variantes v ON dv.variante_id = v.id
   JOIN productos p ON v.producto_id = p.id
@@ -448,7 +448,7 @@ router.get('/ventas/historial-todos', verifyToken, (req, res) => {
         productos: detalles
           .filter(d => d.venta_id === venta.id)
           .map(d => ({
-            producto: d.producto,
+            producto: d.nombre,
             cantidad: d.cantidad,
             precio_unitario: d.precio_unitario
           }))

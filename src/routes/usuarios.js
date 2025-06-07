@@ -148,6 +148,11 @@ router.post('/carrito/limpiar', verifyToken, (req, res) => {
     }
   );
 });
+
+
+
+
+
 //simulacion de copras
 router.post('/comprar', verifyToken, (req, res) => {
   const { productos, total, metodoPago, direccionEnvio } = req.body;
@@ -192,7 +197,7 @@ router.post('/comprar', verifyToken, (req, res) => {
           const venta_id = result.insertId;
 
        // Insertar productos en detalle_ventas
-       const valoresProductos = productos.map(p => [venta_id, p.variante_id, p.cantidad, p.precio_calculado]);
+       const valoresProductos = productos.map(p => [venta_id, p.variante_id, p.cantidad, p.precio_venta]);
 
        connection.query(
          `INSERT INTO detalle_ventas (venta_id, variante_id, cantidad, precio_unitario) VALUES ?`,
@@ -226,6 +231,7 @@ router.post('/comprar', verifyToken, (req, res) => {
       console.error('Error al registrar historial de ventas:', errorHistorial);
       return connection.rollback(() => {
         connection.release();
+
         res.status(500).json({ message: 'Error al registrar historial de ventas' });
       });
     }

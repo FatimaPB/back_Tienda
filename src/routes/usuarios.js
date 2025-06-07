@@ -45,12 +45,28 @@ router.get('/check-auth', verifyToken, (req, res) => {
 // Obtener carrito del usuario autenticado
 router.get('/carrito', verifyToken, (req, res) => {
   db.query(
-          `SELECT ac.id, ac.producto_id, ac.variante_id, p.nombre, p.precio_venta, ac.cantidad, 
-            (SELECT GROUP_CONCAT(url) FROM imagenes WHERE producto_id = p.id) AS imagenes
-      FROM productos_carrito ac 
-      JOIN productos p ON ac.producto_id = p.id
-      WHERE ac.usuario_id = ?
-      GROUP BY ac.id`,  // Agrupar por artículo en el carrito
+          `SELECT 
+  ac.id, 
+  ac.producto_id, 
+  ac.variante_id, 
+  p.nombre, 
+  p.precio_venta, 
+  ac.cantidad,
+  (
+    SELECT GROUP_CONCAT(url) 
+    FROM imagenes_variante 
+    WHERE variante_id = ac.variante_id
+  ) AS imagenes_variante,
+  (
+    SELECT GROUP_CONCAT(url) 
+    FROM imagenes 
+    WHERE producto_id = p.id AND variante_id IS NULL
+  ) AS imagenes_producto
+FROM productos_carrito ac 
+JOIN productos p ON ac.producto_id = p.id
+WHERE ac.usuario_id = ?
+GROUP BY ac.id;
+`,  // Agrupar por artículo en el carrito
     [req.usuario.id],
     (error, results) => {
       if (error) {

@@ -261,6 +261,7 @@ router.post('/comprar', verifyToken, (req, res) => {
 });
 });
 
+
 router.put('/ventas/:ventaId/estado', verifyToken, (req, res) => {
   const { ventaId } = req.params;
   const { nuevoEstado, cambioPor } = req.body; // nuevoEstado: 'pendiente', 'pagado' o 'cancelado'

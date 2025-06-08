@@ -45,7 +45,7 @@ router.post('/compras', (req, res) => {
               continuar();
             });
           } else if (productoId) {
-            const queryStock = 'UPDATE productos SET stock = stock + ? WHERE id = ?';
+            const queryStock = 'UPDATE productos SET cantidad_stock = cantidad_stock + ? WHERE id = ?';
             db.query(queryStock, [cantidad, productoId], (err) => {
               if (err) {
                 console.error(err);

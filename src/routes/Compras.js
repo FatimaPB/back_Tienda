@@ -8,7 +8,6 @@ router.post('/compras', (req, res) => {
   const { proveedorId, detallesCompra } = req.body;
   let totalCompra = 0;
 
-  // Primero, creamos la compra
   const queryCompra = 'INSERT INTO compras (proveedor_id, total) VALUES (?, ?)';
   db.query(queryCompra, [proveedorId, 0], (err, compraResult) => {
     if (err) {
@@ -17,50 +16,67 @@ router.post('/compras', (req, res) => {
     }
 
     const compraId = compraResult.insertId;
-
-    // Luego, agregamos los detalles de la compra
     let detallesCompletados = 0;
+
     for (let detalle of detallesCompra) {
-      const { varianteId, cantidad, precioCompra } = detalle;
+      const { varianteId, productoId, cantidad, precioCompra } = detalle;
 
-      // Agregar detalle de compra
-      const queryDetalle = 'INSERT INTO detalle_compras (compra_id, variante_id, cantidad, precio_compra) VALUES (?, ?, ?, ?)';
-      db.query(queryDetalle, [compraId, varianteId, cantidad, precioCompra], (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ message: 'Error al registrar el detalle de la compra' });
-        }
+      const queryDetalle = `
+        INSERT INTO detalle_compras (compra_id, variante_id, producto_id, cantidad, precio_compra) 
+        VALUES (?, ?, ?, ?, ?)`;
 
-        // Actualizamos el stock de la variante
-        const queryStock = 'UPDATE variantes SET cantidad_stock = cantidad_stock + ? WHERE id = ?';
-        db.query(queryStock, [cantidad, varianteId], (err) => {
+      db.query(
+        queryDetalle,
+        [compraId, varianteId || null, productoId || null, cantidad, precioCompra],
+        (err) => {
           if (err) {
             console.error(err);
-            return res.status(500).json({ message: 'Error al actualizar el stock de la variante' });
+            return res.status(500).json({ message: 'Error al registrar el detalle de la compra' });
           }
 
-          // Calculamos el total de la compra
-          totalCompra += cantidad * precioCompra;
-
-          // Verificamos si todos los detalles se procesaron
-          detallesCompletados++;
-          if (detallesCompletados === detallesCompra.length) {
-            // Ahora actualizamos el total de la compra
-            const queryTotal = 'UPDATE compras SET total = ? WHERE id = ?';
-            db.query(queryTotal, [totalCompra, compraId], (err) => {
+          // Actualizar stock según si tiene variante o no
+          if (varianteId) {
+            const queryStock = 'UPDATE variantes SET cantidad_stock = cantidad_stock + ? WHERE id = ?';
+            db.query(queryStock, [cantidad, varianteId], (err) => {
               if (err) {
                 console.error(err);
-                return res.status(500).json({ message: 'Error al actualizar el total de la compra' });
+                return res.status(500).json({ message: 'Error al actualizar el stock de la variante' });
               }
-
-              res.status(201).json({ message: 'Compra registrada correctamente', compraId });
+              continuar();
             });
+          } else if (productoId) {
+            const queryStock = 'UPDATE productos SET stock = stock + ? WHERE id = ?';
+            db.query(queryStock, [cantidad, productoId], (err) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).json({ message: 'Error al actualizar el stock del producto' });
+              }
+              continuar();
+            });
+          } else {
+            return res.status(400).json({ message: 'Debe proporcionar varianteId o productoId' });
           }
-        });
-      });
+
+          function continuar() {
+            totalCompra += cantidad * precioCompra;
+            detallesCompletados++;
+            if (detallesCompletados === detallesCompra.length) {
+              const queryTotal = 'UPDATE compras SET total = ? WHERE id = ?';
+              db.query(queryTotal, [totalCompra, compraId], (err) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({ message: 'Error al actualizar el total de la compra' });
+                }
+                res.status(201).json({ message: 'Compra registrada correctamente', compraId });
+              });
+            }
+          }
+        }
+      );
     }
   });
 });
+
 
 // Ruta para obtener todas las compras
 router.get('/compras', (req, res) => {

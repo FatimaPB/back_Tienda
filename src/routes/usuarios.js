@@ -14,7 +14,9 @@ const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
 const mercadopago = require('mercadopago');
 
-mercadopago.configurations.setAccessToken('TESTUSER753326196');
+mercadopago.configure({
+  access_token: 'TESTUSER753326196'
+});
 
 
 // Middleware para verificar el token JWT

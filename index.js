@@ -1,4 +1,5 @@
 const express = require('express');
+const mercadopago = require('mercadopago');
 
 const db = require('./src/config/db'); // Importar la conexión a MySQL
 const cors = require('cors');
@@ -31,6 +32,12 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],  // Encabezados permitidos
     preflightContinue: true,  // Permite continuar con la solicitud después de la prevalidación (opcional)
 };
+
+
+// Reemplazá con tu Access Token real
+mercadopago.configure({
+  access_token: 'TESTUSER753326196'
+});
 
 
 

@@ -266,7 +266,7 @@ router.post('/comprar', verifyToken, (req, res) => {
   items: productos.map(p => ({
     title: p.nombre || 'Producto',
     quantity: p.cantidad,
-    unit_price: p.precio_venta,
+    unit_price: Number(p.precio_venta),
     currency_id: 'MXN'
   })),
   back_urls: {

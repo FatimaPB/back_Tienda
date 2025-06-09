@@ -158,7 +158,7 @@ router.post('/carrito/limpiar', verifyToken, (req, res) => {
 
 
 //simulacion de copras
-router.post('/comprar', (req, res) => {
+router.post('/comprar',verifyToken, (req, res) => {
   const { productos, total, metodoPago, direccionEnvio } = req.body;
   const usuario_id = req.usuario.id;
 

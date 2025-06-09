@@ -283,7 +283,7 @@ mercadopago.preferences.create(preference)
     connection.release();
     res.json({
       message: 'Compra registrada, redirige a Mercado Pago',
-      mp_url: response.body.init_point
+       init_point: response.body.init_point 
     });
   })
   .catch(error => {

@@ -14,7 +14,7 @@ const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 const mercadopago = require('mercadopago');
 
 mercadopago.configure({
-  access_token:'TESTUSER753326196'
+  access_token:'APP_USR-7584885571117241-060904-2f06d22a868edbbcbb66f51af2a2ac20-2483950487'
 });
 
 

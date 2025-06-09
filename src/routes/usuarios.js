@@ -8,9 +8,12 @@ const jwt = require('jsonwebtoken');
 const Actividad = require('../models/actividad.model');
 const db = require('../config/db'); // Importar la conexión a MySQL
 const router = express.Router();
-const { MercadoPagoConfig } = require('mercadopago');
-const mercadopago = new MercadoPagoConfig({ accessToken: 'TESTUSER753326196' });
+
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
+
+
+const { MercadoPago } = require('mercadopago');
+const mercadopago = new MercadoPago('TESTUSER753326196');
 
 
 // Middleware para verificar el token JWT
@@ -158,7 +161,7 @@ router.post('/carrito/limpiar', verifyToken, (req, res) => {
 
 
 //simulacion de copras
-router.post('/comprar',verifyToken, (req, res) => {
+router.post('/comprar', verifyToken, (req, res) => {
   const { productos, total, metodoPago, direccionEnvio } = req.body;
   const usuario_id = req.usuario.id;
 
@@ -166,27 +169,30 @@ router.post('/comprar',verifyToken, (req, res) => {
     return res.status(400).json({ message: 'El carrito está vacío' });
   }
 
-  // Estado de venta normal (3 = efectivo pendiente, otro pagado)
-  // Si es Mercado Pago (4) dejamos pendiente hasta confirmar pago
-  const estadoVenta = (metodoPago == 3 || metodoPago == 4) ? 'pendiente' : 'pagado';
+   // Determinar el estado de la venta según el método de pago:
+  // Ejemplo: si el método de pago es 'efectivo' (supongamos que su id es 3), queda pendiente, de lo contrario, pagado.
+  const estadoVenta = (metodoPago == 3) ? 'pendiente' : 'pagado';
 
+  // Obtener una conexión del pool
   db.getConnection((err, connection) => {
     if (err) {
       console.error('Error al obtener conexión:', err);
       return res.status(500).json({ message: 'Error en la compra' });
     }
 
-    connection.beginTransaction(async (err) => {
+    // Iniciar transacción
+    connection.beginTransaction((err) => {
       if (err) {
         console.error('Error al iniciar transacción:', err);
         connection.release();
         return res.status(500).json({ message: 'Error en la compra' });
       }
 
+      // Insertar la venta (incluyendo el estado)
       connection.query(
         `INSERT INTO ventas (usuario_id, total, metodo_pago_id, direccion_envio, estado) VALUES (?, ?, ?, ?, ?)`,
         [usuario_id, total, metodoPago, direccionEnvio || null, estadoVenta],
-        async (error, result) => {
+        (error, result) => {
           if (error) {
             console.error('Error al registrar la venta:', error);
             return connection.rollback(() => {
@@ -197,120 +203,111 @@ router.post('/comprar',verifyToken, (req, res) => {
 
           const venta_id = result.insertId;
 
-          const valoresProductos = productos.map(p => [
-            venta_id,
-            p.producto_id || null,
-            p.variante_id || null,
-            p.cantidad,
-            p.precio_venta
-          ]);
+       // Insertar productos en detalle_ventas
+       const valoresProductos = productos.map(p => [ 
+        venta_id,
+        p.producto_id || null,     // si es sin variante
+        p.variante_id || null,     // si es con variante
+        p.cantidad,
+        p.precio_venta]);
 
-          connection.query(
-            `INSERT INTO detalle_ventas (venta_id, producto_id, variante_id, cantidad, precio_unitario) VALUES ?`,
-            [valoresProductos],
-            (errorDetalle) => {
-              if (errorDetalle) {
-                console.error('Error al registrar productos:', errorDetalle);
-                return connection.rollback(() => {
-                  connection.release();
-                  res.status(500).json({ message: 'Error al registrar productos' });
-                });
-              }
+       connection.query(
+         `INSERT INTO detalle_ventas (venta_id, producto_id, variante_id, cantidad, precio_unitario) VALUES ?`,
+         [valoresProductos],
+         (errorDetalle) => {
+           if (errorDetalle) {
+             console.error('Error al registrar productos:', errorDetalle);
+             return connection.rollback(() => {
+               connection.release();
+               res.status(500).json({ message: 'Error al registrar productos' });
+             });
+           }
+      // Eliminar carrito del usuario
+      connection.query(
+        `DELETE FROM productos_carrito WHERE usuario_id = ?`,
+        [usuario_id],
+        (errorCarrito) => {
+          if (errorCarrito) {
+            console.error('Error al limpiar el carrito:', errorCarrito);
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: 'Error al limpiar el carrito' });
+            });
+          }
+ // Registrar en el historial de ventas (estado inicial: 'N/A' -> estadoVenta)
+ connection.query(
+  `INSERT INTO ventas_historial (venta_id, estado_anterior, estado_nuevo, cambio_por) VALUES (?, ?, ?, ?)`,
+  [venta_id, 'N/A', estadoVenta, 'Sistema'],
+  (errorHistorial) => {
+    if (errorHistorial) {
+      console.error('Error al registrar historial de ventas:', errorHistorial);
+      return connection.rollback(() => {
+        connection.release();
 
-              connection.query(
-                `DELETE FROM productos_carrito WHERE usuario_id = ?`,
-                [usuario_id],
-                (errorCarrito) => {
-                  if (errorCarrito) {
-                    console.error('Error al limpiar el carrito:', errorCarrito);
-                    return connection.rollback(() => {
-                      connection.release();
-                      res.status(500).json({ message: 'Error al limpiar el carrito' });
-                    });
-                  }
+        res.status(500).json({ message: 'Error al registrar historial de ventas' });
+      });
+    }
 
-                  connection.query(
-                    `INSERT INTO ventas_historial (venta_id, estado_anterior, estado_nuevo, cambio_por) VALUES (?, ?, ?, ?)`,
-                    [venta_id, 'N/A', estadoVenta, 'Sistema'],
-                    async (errorHistorial) => {
-                      if (errorHistorial) {
-                        console.error('Error al registrar historial de ventas:', errorHistorial);
-                        return connection.rollback(() => {
-                          connection.release();
-                          res.status(500).json({ message: 'Error al registrar historial de ventas' });
-                        });
-                      }
+  // Confirmar transacción
+  connection.commit((commitErr) => {
+    if (commitErr) {
+      console.error('Error al confirmar la compra:', commitErr);
+      return connection.rollback(() => {
+        connection.release();
+        res.status(500).json({ message: 'Error al confirmar la compra' });
+      });
+    }
 
-                      // Aquí controlamos el caso Mercado Pago (id = 4)
-                      if (metodoPago == 4) {
-                        try {
-                          // Crear preferencia Mercado Pago
-                          const preference = {
-                            items: productos.map(p => ({
-                              title: p.nombre,
-                              quantity: p.cantidad,
-                              unit_price: Number(p.precio_venta),
-                            })),
-                            back_urls: {
-                              success: 'https://tu-frontend.com/pago-exitoso',
-                              failure: 'https://tu-frontend.com/pago-fallido',
-                              pending: 'https://tu-frontend.com/pago-pendiente',
-                            },
-                            auto_return: 'approved',
-                            external_reference: String(venta_id),
-                          };
+    if (metodoPago == 4) {
+  const preference = {
+    items: productos.map(p => ({
+      title: p.nombre || 'Producto',
+      quantity: p.cantidad,
+      unit_price: p.precio_venta,
+      currency_id: 'MXN'
+    })),
+    back_urls: {
+      success: 'https://tulibreria.com/pago-exitoso',
+      failure: 'https://tulibreria.com/pago-fallido',
+      pending: 'https://tulibreria.com/pago-pendiente'
+    },
+    auto_return: 'approved',
+    external_reference: venta_id.toString()
+  };
 
-                          const response = await mercadopago.preferences.create(preference);
-
-                          connection.commit((commitErr) => {
-                            if (commitErr) {
-                              console.error('Error al confirmar la compra:', commitErr);
-                              return connection.rollback(() => {
-                                connection.release();
-                                res.status(500).json({ message: 'Error al confirmar la compra' });
-                              });
-                            }
-
-                            connection.release();
-
-                            return res.json({
-                              message: 'Preferencia de pago creada',
-                              init_point: response.body.init_point,
-                              venta_id
-                            });
-                          });
-                        } catch (mpError) {
-                          console.error('Error creando preferencia Mercado Pago:', mpError);
-                          return connection.rollback(() => {
-                            connection.release();
-                            res.status(500).json({ message: 'Error creando preferencia Mercado Pago' });
-                          });
-                        }
-                      } else {
-                        // Otros métodos de pago: commit normal y respuesta de éxito
-                        connection.commit((commitErr) => {
-                          if (commitErr) {
-                            console.error('Error al confirmar la compra:', commitErr);
-                            return connection.rollback(() => {
-                              connection.release();
-                              res.status(500).json({ message: 'Error al confirmar la compra' });
-                            });
-                          }
-
-                          connection.release();
-                          res.json({ message: 'Compra realizada con éxito' });
-                        });
-                      }
-                    }
-                  );
-                }
-              );
-            }
-          );
-        }
-      );
+  mercadopago.preferences.create(preference)
+    .then(response => {
+      connection.release();
+      res.json({
+        message: 'Compra registrada, redirige a Mercado Pago',
+        mp_url: response.body.init_point
+      });
+    })
+    .catch(error => {
+      console.error('Error creando preferencia Mercado Pago:', error);
+      return connection.rollback(() => {
+        connection.release();
+        res.status(500).json({ message: 'Error creando preferencia de pago' });
+      });
     });
+
+  return; // para evitar que se ejecute el res.json final
+}
+
+
+    connection.release();
+    res.json({ message: 'Compra realizada con éxito'});
   });
+}
+);
+}
+);
+}
+);
+}
+);
+});
+});
 });
 
 

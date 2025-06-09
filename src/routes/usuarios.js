@@ -8,7 +8,8 @@ const jwt = require('jsonwebtoken');
 const Actividad = require('../models/actividad.model');
 const db = require('../config/db'); // Importar la conexión a MySQL
 const router = express.Router();
-const mercadopago = require('mercadopago');
+const { MercadoPagoConfig } = require('mercadopago');
+const mercadopago = new MercadoPagoConfig({ accessToken: 'TESTUSER753326196' });
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
 

@@ -11,9 +11,12 @@ const router = express.Router();
 
 const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
-
 const mercadopago = require('mercadopago');
-mercadopago.accessToken = 'TESTUSER753326196';
+
+mercadopago.configure({
+  access_token:'TESTUSER753326196'
+});
+
 
 
 // Middleware para verificar el token JWT
@@ -275,7 +278,7 @@ router.post('/comprar', verifyToken, (req, res) => {
   external_reference: venta_id.toString()
 };
 
-mercadopago.preference.create(preference)
+mercadopago.preferences.create(preference)
   .then(response => {
     connection.release();
     res.json({

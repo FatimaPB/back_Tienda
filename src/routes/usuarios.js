@@ -270,9 +270,9 @@ router.post('/comprar', verifyToken, (req, res) => {
     currency_id: 'MXN'
   })),
   back_urls: {
-    success: 'https://tulibreria.com/pago-exitoso',
-    failure: 'https://tulibreria.com/pago-fallido',
-    pending: 'https://tulibreria.com/pago-pendiente'
+    success: 'http://localhost:4200/carshop',
+    failure: 'http://localhost:4200/carshop',
+    pending: 'http://localhost:4200/carshop'
   },
   auto_return: 'approved',
   external_reference: venta_id.toString()

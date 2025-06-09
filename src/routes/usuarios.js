@@ -13,10 +13,7 @@ const JWT_SECRET = 'tu_clave_secreta'; // Guarda esto en un archivo de entorno
 
 
 const mercadopago = require('mercadopago');
-
-mercadopago.configure({
-  access_token: 'TESTUSER753326196'
-});
+mercadopago.accessToken = 'TESTUSER753326196';
 
 
 // Middleware para verificar el token JWT
@@ -262,37 +259,37 @@ router.post('/comprar', verifyToken, (req, res) => {
     }
   // cuando metodoPago == 4 (Mercado Pago)
   if (metodoPago == 4) {
-    const preference = {
-      items: productos.map(p => ({
-        title: p.nombre || 'Producto',
-        quantity: p.cantidad,
-        unit_price: p.precio_venta,
-        currency_id: 'MXN'
-      })),
-      back_urls: {
-        success: 'https://tulibreria.com/pago-exitoso',
-        failure: 'https://tulibreria.com/pago-fallido',
-        pending: 'https://tulibreria.com/pago-pendiente'
-      },
-      auto_return: 'approved',
-      external_reference: venta_id.toString()
-    };
+   const preference = {
+  items: productos.map(p => ({
+    title: p.nombre || 'Producto',
+    quantity: p.cantidad,
+    unit_price: p.precio_venta,
+    currency_id: 'MXN'
+  })),
+  back_urls: {
+    success: 'https://tulibreria.com/pago-exitoso',
+    failure: 'https://tulibreria.com/pago-fallido',
+    pending: 'https://tulibreria.com/pago-pendiente'
+  },
+  auto_return: 'approved',
+  external_reference: venta_id.toString()
+};
 
-    mercadopago.preferences.create(preference)
-      .then(response => {
-        connection.release();
-        res.json({
-          message: 'Compra registrada, redirige a Mercado Pago',
-          mp_url: response.body.init_point
-        });
-      })
-      .catch(error => {
-        console.error('Error creando preferencia Mercado Pago:', error);
-        return connection.rollback(() => {
-          connection.release();
-          res.status(500).json({ message: 'Error creando preferencia de pago' });
-        });
-      });
+mercadopago.preferences.create(preference)
+  .then(response => {
+    connection.release();
+    res.json({
+      message: 'Compra registrada, redirige a Mercado Pago',
+      mp_url: response.body.init_point
+    });
+  })
+  .catch(error => {
+    console.error('Error creando preferencia Mercado Pago:', error);
+    return connection.rollback(() => {
+      connection.release();
+      res.status(500).json({ message: 'Error creando preferencia de pago' });
+    });
+  });
 
     return; // para evitar que siga el flujo y envíe otro res.json
   }

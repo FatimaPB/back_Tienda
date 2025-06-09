@@ -275,7 +275,7 @@ router.post('/comprar', verifyToken, (req, res) => {
   external_reference: venta_id.toString()
 };
 
-mercadopago.preferences.create(preference)
+mercadopago.preference.create(preference)
   .then(response => {
     connection.release();
     res.json({

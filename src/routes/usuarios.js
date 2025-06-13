@@ -476,6 +476,41 @@ router.get('/envios/pendientes', verifyToken, (req, res) => {
   );
 });
 
+//ruta actualizar el envio por parte del repartidor
+
+router.post('/envio/actualizar', verifyToken, (req, res) => {
+  const { venta_id, nuevoEstado, descripcion } = req.body;
+  const repartidor_id = req.usuario.id;
+
+  // 1. Actualizar el estado de envío en la tabla ventas
+  db.query(
+    'UPDATE ventas SET estado_envio = ? WHERE id = ?',
+    [nuevoEstado, venta_id],
+    (err) => {
+      if (err) {
+        console.error('Error actualizando estado_envio:', err);
+        return res.status(500).json({ message: 'Error al actualizar estado de envío' });
+      }
+
+      // 2. Insertar el cambio en la tabla seguimiento_envio
+      db.query(
+        `INSERT INTO seguimiento_envio (venta_id, estado, descripcion, cambio_por)
+         VALUES (?, ?, ?, ?)`,
+        [venta_id, nuevoEstado, descripcion || '', repartidor_id],
+        (err2) => {
+          if (err2) {
+            console.error('Error al registrar seguimiento:', err2);
+            return res.status(500).json({ message: 'Error al registrar seguimiento' });
+          }
+
+          res.json({ message: 'Seguimiento actualizado correctamente' });
+        }
+      );
+    }
+  );
+});
+
+
 
 router.get('/ventas/:ventaId/detalle', verifyToken, (req, res) => {
   const { ventaId } = req.params;

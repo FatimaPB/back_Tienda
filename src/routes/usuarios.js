@@ -510,6 +510,39 @@ router.post('/envio/actualizar', verifyToken, (req, res) => {
   );
 });
 
+// ruta para consuktar elk seguimiento del envioo por parte del usuario
+
+router.get('/envio/seguimiento/:venta_id', verifyToken, (req, res) => {
+  const venta_id = req.params.venta_id;
+  const usuario_id = req.usuario.id;
+
+  // Validar que la venta pertenece al usuario
+  const validarQuery = `SELECT id FROM ventas WHERE id = ? AND usuario_id = ?`;
+
+  db.query(validarQuery, [venta_id, usuario_id], (err, result) => {
+    if (err || result.length === 0) {
+      return res.status(403).json({ message: 'No autorizado' });
+    }
+
+    // Obtener historial
+    const seguimientoQuery = `
+      SELECT estado AS estado_nuevo, descripcion, fecha, u.nombre AS cambio_por
+      FROM seguimiento_envio se
+      LEFT JOIN usuarios u ON se.cambio_por = u.id
+      WHERE se.venta_id = ?
+      ORDER BY se.fecha DESC
+    `;
+
+    db.query(seguimientoQuery, [venta_id], (err2, historial) => {
+      if (err2) {
+        console.error('Error al obtener seguimiento:', err2);
+        return res.status(500).json({ message: 'Error al obtener seguimiento' });
+      }
+
+      res.json({ historial });
+    });
+  });
+});
 
 
 router.get('/ventas/:ventaId/detalle', verifyToken, (req, res) => {

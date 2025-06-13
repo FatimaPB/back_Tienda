@@ -393,6 +393,9 @@ router.put('/ventas/:ventaId/envio', verifyToken, (req, res) => {
 });
 
 
+//este es el bueno de compras de usuario
+
+
 router.get('/ventas/historial/:usuario_id', verifyToken, (req, res) => {
   const usuario_id = req.params.usuario_id;
   db.query(
@@ -412,6 +415,46 @@ router.get('/ventas/historial/:usuario_id', verifyToken, (req, res) => {
     }
   );
 });
+
+
+router.get('/pedidos/:id', verifyToken, (req, res) => {
+  const venta_id = req.params.id;
+  const usuario_id = req.usuario.id;
+
+  const ventaQuery = `
+ SELECT v.id, v.fecha, v.total, v.estado, v.estado_envio, v.direccion_envio,
+           mp.nombre AS metodo_pago
+    FROM ventas v
+    JOIN metodos_pago mp ON v.metodo_pago_id = mp.id
+    WHERE v.id = ? AND v.usuario_id = ?
+  `;
+
+  const productosQuery = `
+   SELECT p.nombre, dv.cantidad, dv.precio_unitario,
+           COALESCE(iv.url, ip.url) AS imagen
+    FROM detalle_ventas dv
+    LEFT JOIN productos p ON dv.producto_id = p.id
+    LEFT JOIN imagenes_variante iv ON dv.variante_id = iv.variante_id
+    LEFT JOIN imagenes ip ON dv.producto_id = ip.producto_id
+    WHERE dv.venta_id = ?
+    GROUP BY dv.id
+  `;
+
+  db.query(ventaQuery, [venta_id, usuario_id], (err, ventaResult) => {
+    if (err || ventaResult.length === 0) {
+      return res.status(404).json({ message: 'Venta no encontrada' });
+    }
+
+    db.query(productosQuery, [venta_id], (err2, productos) => {
+      if (err2) {
+        return res.status(500).json({ message: 'Error al obtener productos' });
+      }
+
+      res.json({ ...ventaResult[0], productos });
+    });
+  });
+});
+
 
 
 

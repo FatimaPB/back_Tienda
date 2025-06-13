@@ -416,6 +416,7 @@ router.get('/ventas/historial/:usuario_id', verifyToken, (req, res) => {
   );
 });
 
+//ruta de detalle de la compra del usuario
 
 router.get('/pedidos/:id', verifyToken, (req, res) => {
   const venta_id = req.params.id;
@@ -456,6 +457,24 @@ router.get('/pedidos/:id', verifyToken, (req, res) => {
 });
 
 
+//ruta del repartidor
+
+router.get('/envios/pendientes', verifyToken, (req, res) => {
+  db.query(
+    `SELECT v.id, v.fecha, v.direccion_envio, u.nombre AS cliente, v.estado_envio
+     FROM ventas v
+     JOIN usuarios u ON v.usuario_id = u.id
+     WHERE v.estado_envio != 'entregado'
+     ORDER BY v.fecha DESC`,
+    (err, results) => {
+      if (err) {
+        console.error('Error al obtener envíos pendientes:', err);
+        return res.status(500).json({ message: 'Error al obtener pedidos' });
+      }
+      res.json({ pedidos: results });
+    }
+  );
+});
 
 
 router.get('/ventas/:ventaId/detalle', verifyToken, (req, res) => {

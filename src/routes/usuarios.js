@@ -1040,6 +1040,26 @@ router.put('/usuarios/bloquear/:userId', bloquearUsuario); // Cambia según tu e
 
 //rutas de que el usuario puede comentar y ver los comentarios de un producto
 
+
+// Obtener comentarios de un producto o variante
+router.get('/comentarios', (req, res) => {
+  const { producto_id, variante_id } = req.query;
+
+  db.execute(
+    `SELECT c.comentario, c.calificacion, c.fecha, u.nombre AS nombre_usuario
+     FROM comentarios c
+     JOIN usuarios u ON c.usuario_id = u.id
+     WHERE c.producto_id = ? OR c.variante_id = ? 
+     ORDER BY c.fecha DESC`,
+    [producto_id, variante_id || null],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Error al obtener comentarios' });
+      res.json(results);
+    }
+  );
+});
+
+
 // Verificar si puede comentar
 router.get('/puede-comentar', verifyToken, (req, res) => {
   const usuario_id = req.usuario.id;

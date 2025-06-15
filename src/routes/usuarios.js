@@ -1045,19 +1045,33 @@ router.put('/usuarios/bloquear/:userId', bloquearUsuario); // Cambia según tu e
 router.get('/comentarios', (req, res) => {
   const { producto_id, variante_id } = req.query;
 
-  db.execute(
-    `SELECT c.comentario, c.calificacion, c.fecha, u.nombre AS nombre_usuario
-     FROM comentarios c
-     JOIN usuarios u ON c.usuario_id = u.id
-     WHERE c.producto_id = ? OR c.variante_id = ? 
-     ORDER BY c.fecha DESC`,
-    [producto_id, variante_id || null],
-    (err, results) => {
-      if (err) return res.status(500).json({ message: 'Error al obtener comentarios' });
-      res.json(results);
-    }
-  );
+  if (!producto_id) {
+    return res.status(400).json({ message: 'Falta el producto_id' });
+  }
+
+  let sql = `
+    SELECT c.comentario, c.calificacion, c.fecha, u.nombre AS nombre_usuario
+    FROM comentarios c
+    JOIN usuarios u ON c.usuario_id = u.id
+    WHERE c.producto_id = ?`;
+
+  const params = [producto_id];
+
+  if (variante_id) {
+    sql += ` AND c.variante_id = ?`;
+    params.push(variante_id);
+  } else {
+    sql += ` AND c.variante_id IS NULL`;
+  }
+
+  sql += ` ORDER BY c.fecha DESC`;
+
+  db.execute(sql, params, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Error al obtener comentarios' });
+    res.json(results);
+  });
 });
+
 
 
 // Verificar si puede comentar

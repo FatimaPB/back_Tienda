@@ -1035,4 +1035,46 @@ router.get('/usuarios-bloqueados', obtenerUsuariosBloqueados);
 router.put('/usuarios/bloquear/:userId', bloquearUsuario); // Cambia según tu estructura de rutas
 
 
+
+
+
+//rutas de que el usuario puede comentar y ver los comentarios de un producto
+
+// Verificar si puede comentar
+router.get('/puede-comentar', verifyToken, (req, res) => {
+  const usuario_id = req.usuario.id;
+  const { producto_id, variante_id } = req.query;
+
+  db.execute(
+    `SELECT COUNT(*) AS total FROM detalle_ventas dv
+     JOIN ventas v ON dv.venta_id = v.id
+     WHERE v.usuario_id = ? AND (dv.producto_id = ? OR dv.variante_id = ?)`,
+    [usuario_id, producto_id, variante_id || null],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Error al verificar permiso' });
+
+      const comprado = results[0].total > 0;
+      res.json({ permitido: comprado });
+    }
+  );
+});
+
+// Crear nuevo comentario
+router.post('/comentario', verifyToken, (req, res) => {
+  const { producto_id, variante_id, comentario, calificacion } = req.body;
+  const usuario_id = req.usuario.id;
+
+  db.execute(
+    `INSERT INTO comentarios (usuario_id, producto_id, variante_id, comentario, calificacion, fecha)
+     VALUES (?, ?, ?, ?, ?, NOW())`,
+    [usuario_id, producto_id, variante_id || null, comentario, calificacion],
+    (err, result) => {
+      if (err) return res.status(500).json({ message: 'Error al guardar comentario' });
+      res.json({ message: 'Comentario guardado' });
+    }
+  );
+});
+
+
+
 module.exports = router;

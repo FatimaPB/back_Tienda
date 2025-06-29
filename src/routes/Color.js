@@ -30,7 +30,7 @@ router.get("/colores", (req, res) => {
     });
 });
 
-// 🔹 Obtener una color por ID
+// 🔹 Obtener una color por ID 
 router.get("/colores/:id", (req, res) => {
     const { id } = req.params;
 

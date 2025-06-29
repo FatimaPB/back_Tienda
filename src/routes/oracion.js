@@ -9,7 +9,7 @@ router.get('/oracion', (req, res) => {
   db.query(query, (err, results) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ message: 'Error al obtener las oraciones' });
+      return res.status(500).json({ message: 'Error, hubo un fallo al obtener las oraciones' });
     }
 
     if (results.length === 0) {

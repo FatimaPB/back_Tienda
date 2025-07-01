@@ -590,7 +590,7 @@ router.get('/ventas/historial-todos', verifyToken, (req, res) => {
   }
 
   const consultaVentas = `
-    SELECT v.id, u.nombre AS cliente, v.total,v.metodo_pago_id, v.estado, v.estado_envio, v.direccion_envio, v.fecha,
+    SELECT v.id, u.nombre AS cliente, v.total, v.metodo_pago_id, v.estado, v.estado_envio, v.direccion_envio, v.fecha,
            mp.nombre AS metodo_pago
     FROM ventas v
     JOIN usuarios u ON v.usuario_id = u.id
@@ -607,19 +607,21 @@ router.get('/ventas/historial-todos', verifyToken, (req, res) => {
       return res.json({ ventas: [] });
     }
 
-    // Obtener detalles de los productos de cada venta
     const ventasIds = ventas.map(v => v.id);
-    const consultaDetalles = `
-SELECT dv.venta_id,
-         COALESCE(pv.nombre, ps.nombre) AS producto,
-         dv.cantidad,
-         dv.precio_unitario
-  FROM detalle_ventas dv
-  LEFT JOIN variantes v ON dv.variante_id = v.id
-  LEFT JOIN productos pv ON v.producto_id = pv.id
-  LEFT JOIN productos ps ON dv.producto_id = ps.id
-  WHERE dv.venta_id IN (?)`;
 
+    const consultaDetalles = `
+      SELECT 
+        dv.venta_id,
+        COALESCE(pv.nombre, ps.nombre) AS producto,
+        dv.cantidad,
+        dv.precio_unitario,
+        (SELECT iv.url FROM imagenes_variante iv WHERE iv.variante_id = dv.variante_id LIMIT 1) AS imagen_variante,
+        (SELECT ip.url FROM imagenes ip WHERE ip.producto_id = dv.producto_id LIMIT 1) AS imagen_producto
+      FROM detalle_ventas dv
+      LEFT JOIN variantes v ON dv.variante_id = v.id
+      LEFT JOIN productos pv ON v.producto_id = pv.id
+      LEFT JOIN productos ps ON dv.producto_id = ps.id
+      WHERE dv.venta_id IN (?)`;
 
     db.query(consultaDetalles, [ventasIds], (errorDetalles, detalles) => {
       if (errorDetalles) {
@@ -627,7 +629,6 @@ SELECT dv.venta_id,
         return res.status(500).json({ message: 'Error al obtener detalles de ventas' });
       }
 
-      // Agregar los detalles a cada venta
       const ventasConDetalles = ventas.map(venta => ({
         ...venta,
         productos: detalles
@@ -635,7 +636,8 @@ SELECT dv.venta_id,
           .map(d => ({
             nombre: d.producto,
             cantidad: d.cantidad,
-            precio_unitario: d.precio_unitario
+            precio_unitario: d.precio_unitario,
+            imagen: d.imagen_variante || d.imagen_producto || null
           }))
       }));
 
@@ -644,9 +646,6 @@ SELECT dv.venta_id,
   });
 });
 
-
-
-  
 // Ruta para obtener el perfil del usuario
 router.get('/perfil', verifyToken, async (req, res) => {
   try {

@@ -25,6 +25,8 @@ const proveedorRouter=require('./src/routes/Proveedor');
 const comprasRouter=require('./src/routes/Compras');
 const oracionRouter= require('./src/routes/oracion');
 const preguntasRouter = require('./src/routes/preguntas');
+const noticacionesRouter = require('./src/routes/notificaciones');
+
 
 const corsOptions = {
     origin: ['http://localhost:3000', 'http://localhost', 'http://localhost:4200','https://tienda-lib-cr.vercel.app'], // Permite solo desde localhost
@@ -70,8 +72,7 @@ app.use('/api', proveedorRouter);
 app.use('/api', comprasRouter);
 app.use('/api', oracionRouter);
 app.use('/api', preguntasRouter);
-
-
+app.use('/api', noticacionesRouter);
 
 
 //Rutas

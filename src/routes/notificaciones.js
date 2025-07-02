@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('../../firebase'); // este es el que exportaste
+//const admin = require('../../firebase'); // este es el que exportaste
 
 router.post('/notificar', async (req, res) => {
   const { token, title, body } = req.body;
